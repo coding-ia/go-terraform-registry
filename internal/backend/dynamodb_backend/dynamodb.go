@@ -136,6 +136,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 				OS:   parts[1],
 				Arch: parts[2],
 			})
+			mergeProtocols(&value.Protocols, protocols)
 			versions[parts[0]] = value
 		} else {
 			versions[parts[0]] = models.TerraformAvailableVersion{
@@ -159,4 +160,23 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 	}
 
 	return provider, nil
+}
+
+func mergeProtocols(protocols *[]string, additionalProtocols []string) {
+	uniqueSet := make(map[string]struct{}, len(*protocols))
+	var result []string
+
+	for _, protocol := range *protocols {
+		uniqueSet[protocol] = struct{}{}
+		result = append(result, protocol)
+	}
+
+	for _, item := range additionalProtocols {
+		if _, exists := uniqueSet[item]; !exists {
+			uniqueSet[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+
+	*protocols = result
 }
