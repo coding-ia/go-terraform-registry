@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
-	"go-terraform-registry/internal/backend/dynamodb_backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/controller"
 	"os"
@@ -15,15 +14,13 @@ import (
 var ginLambda *ginadapter.GinLambda
 
 func main() {
+	ctx := context.Background()
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	c := config.GetRegistryConfig()
-	b := dynamodb_backend.NewDynamoDBBackend()
-
-	// configure the backend
-	ctx := context.Background()
-	b.ConfigureBackend(ctx)
+	b := config.SelectBackend(ctx, "dynamodb")
 
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, b)
