@@ -46,6 +46,10 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 func (a *AuthenticationController) Authorization(c *gin.Context) {
 	state := c.Query("state")
 	url := a.OauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+
+	redirectURL := c.Query("redirect_uri")
+	c.SetCookie("redirect-uri", redirectURL, 300, "/", "", true, true)
+
 	c.Redirect(http.StatusFound, url)
 }
 
@@ -53,7 +57,13 @@ func (a *AuthenticationController) Callback(c *gin.Context) {
 	state := c.Query("state")
 	code := c.Query("code")
 
-	redirectURL := fmt.Sprintf("http://localhost:18523/login?code=%s&state=%s", code, state)
+	redirectUrl, err := c.Cookie("redirect-uri")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get redirect uri"})
+		return
+	}
+
+	redirectURL := fmt.Sprintf("%s?code=%s&state=%s", redirectUrl, code, state)
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
