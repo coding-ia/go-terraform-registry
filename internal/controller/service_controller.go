@@ -31,7 +31,8 @@ func (s ServiceController) ServiceDiscovery(c *gin.Context) {
 			"authz_code"
 		],
 		"authz": "/oauth/authorization",
-		"token": "/oauth/access_token"
+		"token": "/oauth/token",
+		"ports": [18523, 18524]
 	}
 }
 `

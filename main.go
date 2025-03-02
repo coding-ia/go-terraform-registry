@@ -24,6 +24,7 @@ func main() {
 
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, b)
+	_ = controller.NewAuthenticationController(r, c)
 
 	lambdaFunction := os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 
