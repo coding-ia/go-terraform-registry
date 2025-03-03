@@ -11,7 +11,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.41.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.3-0.20241029212349-55b777941b8d
 	github.com/gin-gonic/gin v1.10.0
-	github.com/google/uuid v1.5.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/go-github/v69 v69.2.0
 	golang.org/x/oauth2 v0.27.0
 )
 
@@ -28,6 +29,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.16 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 )
 
 require (

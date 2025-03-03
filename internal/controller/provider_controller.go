@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
 	registrytypes "go-terraform-registry/internal/types"
@@ -26,10 +27,14 @@ func NewProviderController(r *gin.Engine, config registryconfig.RegistryConfig, 
 	}
 
 	providers := r.Group("/terraform/providers/v1")
-	{
-		providers.GET("/:ns/:name/versions", pc.Versions)
-		providers.GET("/:ns/:name/:version/download/:os/:arch", pc.ProviderPackage)
+
+	if config.AllowAnonymousAccess == true {
+		handler := auth.NewAuthenticationMiddleware(config)
+		providers.Use(handler.AuthenticationHandler())
 	}
+
+	providers.GET("/:ns/:name/versions", pc.Versions)
+	providers.GET("/:ns/:name/:version/download/:os/:arch", pc.ProviderPackage)
 
 	return pc
 }

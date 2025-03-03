@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	registryauth "go-terraform-registry/internal/auth"
 	registryconfig "go-terraform-registry/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -28,7 +29,7 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 	ac.OauthConfig = &oauth2.Config{
 		ClientID:     config.OauthClientID,
 		ClientSecret: config.OauthClientSecret,
-		RedirectURL:  "https://6850-2601-201-8481-34d0-e544-bbdb-ab20-fddb.ngrok-free.app/oauth/callback",
+		RedirectURL:  "https://04c1-2601-201-8481-34d0-e544-bbdb-ab20-fddb.ngrok-free.app/oauth/callback",
 		Scopes:       []string{"user"},
 		Endpoint:     github.Endpoint,
 	}
@@ -74,5 +75,18 @@ func (a *AuthenticationController) AccessToken(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"access_token": token.AccessToken})
+
+	userName, err := registryauth.GetGitHubUserName(c.Request.Context(), token.AccessToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get GitHub user name"})
+		return
+	}
+
+	accessToken, err := registryauth.CreateJWTToken(*userName, []byte(a.Config.TokenEncryptionKey))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create access token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"access_token": accessToken})
 }
