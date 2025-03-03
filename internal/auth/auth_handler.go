@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	registryconfig "go-terraform-registry/internal/config"
 	"net/http"
+	"strings"
 )
 
 type Authentication struct {
@@ -29,5 +30,18 @@ func (a *Authentication) AuthenticationHandler() gin.HandlerFunc {
 			return
 		}
 
+		parts := strings.Fields(authHeader)
+		token, err := GetJWTToken(parts[1], []byte(a.Config.TokenEncryptionKey))
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Error parsing token"})
+			c.Abort()
+			return
+		}
+
+		if !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
 	}
 }

@@ -28,7 +28,7 @@ func NewProviderController(r *gin.Engine, config registryconfig.RegistryConfig, 
 
 	providers := r.Group("/terraform/providers/v1")
 
-	if config.AllowAnonymousAccess == true {
+	if !config.AllowAnonymousAccess {
 		handler := auth.NewAuthenticationMiddleware(config)
 		providers.Use(handler.AuthenticationHandler())
 	}
