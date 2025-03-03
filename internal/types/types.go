@@ -12,3 +12,16 @@ type ProviderVersionParameters struct {
 	Namespace string
 	Name      string
 }
+
+type ModuleVersionParameters struct {
+	Namespace string
+	Name      string
+	System    string
+}
+
+type ModuleDownloadParameters struct {
+	Namespace string
+	Name      string
+	System    string
+	Version   string
+}

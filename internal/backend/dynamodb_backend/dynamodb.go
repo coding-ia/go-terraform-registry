@@ -17,7 +17,8 @@ import (
 var _ backend.RegistryProviderBackend = &DynamoDBBackend{}
 
 type DynamoDBBackend struct {
-	TableName string
+	ProviderTableName string
+	ModuleTableName   string
 }
 
 func NewDynamoDBBackend() backend.RegistryProviderBackend {
@@ -25,7 +26,8 @@ func NewDynamoDBBackend() backend.RegistryProviderBackend {
 }
 
 func (d *DynamoDBBackend) ConfigureBackend(_ context.Context) {
-	d.TableName = "terraform_providers"
+	d.ProviderTableName = "terraform_providers"
+	d.ModuleTableName = "terraform_modules"
 }
 
 func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters) (*models.TerraformProviderPlatformResponse, error) {
@@ -40,7 +42,7 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 	releaseName := fmt.Sprintf("%s#%s#%s", parameters.Version, parameters.OS, parameters.Architecture)
 
 	params := &dynamodb.QueryInput{
-		TableName:              aws.String(d.TableName),
+		TableName:              aws.String(d.ProviderTableName),
 		KeyConditionExpression: aws.String("provider = :p and #r = :r"),
 		ExpressionAttributeNames: map[string]string{
 			"#r": "release",
@@ -53,7 +55,7 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
-		log.Fatalf("failed to query items, %v", err)
+		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
 
 	if resp.Count == 1 {
@@ -111,7 +113,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
 
 	params := &dynamodb.QueryInput{
-		TableName:              aws.String(d.TableName),
+		TableName:              aws.String(d.ProviderTableName),
 		KeyConditionExpression: aws.String("provider = :p"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":p": &types.AttributeValueMemberS{Value: providerName},
@@ -120,7 +122,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
-		log.Fatalf("failed to query items, %v", err)
+		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
 
 	versions := make(map[string]models.TerraformAvailableVersion)
@@ -160,6 +162,88 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 	}
 
 	return provider, nil
+}
+
+func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	svc := dynamodb.NewFromConfig(cfg)
+
+	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
+
+	params := &dynamodb.QueryInput{
+		TableName:              aws.String(d.ModuleTableName),
+		KeyConditionExpression: aws.String("#m = :m and version = :v"),
+		ExpressionAttributeNames: map[string]string{
+			"#m": "module",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":m": &types.AttributeValueMemberS{Value: moduleName},
+			":v": &types.AttributeValueMemberS{Value: parameters.Version},
+		},
+	}
+
+	resp, err := svc.Query(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items, %v", err)
+	}
+
+	if resp.Count == 1 {
+		uri := resp.Items[0]["download_url"].(*types.AttributeValueMemberS).Value
+		return &uri, nil
+	}
+
+	return nil, nil
+}
+
+func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	svc := dynamodb.NewFromConfig(cfg)
+
+	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
+
+	params := &dynamodb.QueryInput{
+		TableName:              aws.String(d.ModuleTableName),
+		KeyConditionExpression: aws.String("#m = :m"),
+		ExpressionAttributeNames: map[string]string{
+			"#m": "module",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":m": &types.AttributeValueMemberS{Value: moduleName},
+		},
+	}
+
+	resp, err := svc.Query(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items, %v", err)
+	}
+
+	var versions []models.TerraformAvailableModuleVersion
+	if resp.Count > 0 {
+		for _, item := range resp.Items {
+			version := item["version"].(*types.AttributeValueMemberS).Value
+			versions = append(versions, models.TerraformAvailableModuleVersion{
+				Version: version,
+			})
+		}
+	}
+
+	modules := &models.TerraformAvailableModule{
+		Modules: []models.TerraformAvailableModuleVersions{
+			{
+				Versions: versions,
+			},
+		},
+	}
+
+	return modules, nil
 }
 
 func mergeProtocols(protocols *[]string, additionalProtocols []string) {

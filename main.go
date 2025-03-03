@@ -16,7 +16,7 @@ var ginLambda *ginadapter.GinLambda
 func main() {
 	ctx := context.Background()
 
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	c := config.GetRegistryConfig()
@@ -24,6 +24,7 @@ func main() {
 
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, b)
+	_ = controller.NewModuleController(r, c, b)
 	_ = controller.NewAuthenticationController(r, c)
 
 	lambdaFunction := os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
