@@ -11,12 +11,18 @@ import (
 	"os"
 )
 
-var ginLambda *ginadapter.GinLambda
+var (
+	version   string = "dev"
+	ginLambda *ginadapter.GinLambda
+)
 
 func main() {
 	ctx := context.Background()
 
-	gin.SetMode(gin.ReleaseMode)
+	if version != "dev" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.Default()
 
 	c := config.GetRegistryConfig()
@@ -34,7 +40,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err = r.Run(":8080")
+		err = r.Run()
 		if err != nil {
 			panic(err)
 		}
