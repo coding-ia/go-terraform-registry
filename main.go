@@ -16,7 +16,7 @@ var ginLambda *ginadapter.GinLambda
 func main() {
 	ctx := context.Background()
 
-	//gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	c := config.GetRegistryConfig()
