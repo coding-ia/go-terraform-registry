@@ -125,6 +125,10 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
 
+	if resp.Count == 0 {
+		return nil, nil
+	}
+
 	versions := make(map[string]models.TerraformAvailableVersion)
 	for _, item := range resp.Items {
 		release := item["release"].(*types.AttributeValueMemberS).Value
@@ -223,6 +227,10 @@ func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters regi
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
+	}
+
+	if resp.Count == 0 {
+		return nil, nil
 	}
 
 	var versions []models.TerraformAvailableModuleVersion

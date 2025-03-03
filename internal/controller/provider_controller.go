@@ -56,7 +56,7 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 	}
 
 	if provider == nil {
-		errorResponseWithMessage(c, "No provider found")
+		errorResponseErrorNotFound(c, "Not Found")
 		return
 	}
 
@@ -73,6 +73,11 @@ func (p *ProviderController) Versions(c *gin.Context) {
 	if err != nil {
 		log.Printf(err.Error())
 		errorResponse(c)
+		return
+	}
+
+	if provider == nil {
+		errorResponseErrorNotFound(c, "Not Found")
 		return
 	}
 

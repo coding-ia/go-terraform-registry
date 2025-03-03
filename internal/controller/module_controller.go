@@ -54,10 +54,12 @@ func (m *ModuleController) ModuleDownload(c *gin.Context) {
 		return
 	}
 
-	if uri != nil {
-		c.Header("X-Terraform-Get", *uri)
+	if uri == nil {
+		errorResponseErrorNotFound(c, "Not Found")
+		return
 	}
 
+	c.Header("X-Terraform-Get", *uri)
 	c.Status(http.StatusNoContent)
 }
 
@@ -72,6 +74,11 @@ func (m *ModuleController) Versions(c *gin.Context) {
 	if err != nil {
 		log.Printf(err.Error())
 		errorResponse(c)
+		return
+	}
+
+	if module == nil {
+		errorResponseErrorNotFound(c, "Not Found")
 		return
 	}
 

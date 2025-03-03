@@ -7,12 +7,22 @@ import (
 
 func errorResponse(c *gin.Context) {
 	c.JSON(http.StatusInternalServerError, gin.H{
-		"error": "Unable to process request",
+		"errors": "Unable to process request",
 	})
 }
 
 func errorResponseWithMessage(c *gin.Context, status string) {
 	c.JSON(http.StatusInternalServerError, gin.H{
-		"error": status,
+		"errors": []string{
+			status,
+		},
+	})
+}
+
+func errorResponseErrorNotFound(c *gin.Context, status string) {
+	c.JSON(http.StatusNotFound, gin.H{
+		"errors": []string{
+			status,
+		},
 	})
 }
