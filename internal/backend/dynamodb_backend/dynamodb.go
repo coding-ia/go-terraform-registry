@@ -129,7 +129,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 	versions := make(map[string]models.TerraformAvailableVersion)
 	for _, item := range resp.Items {
 		version := item["version"].(*types.AttributeValueMemberS).Value
-		protocols := item["protocol"].(*types.AttributeValueMemberSS).Value
+		protocols := item["protocols"].(*types.AttributeValueMemberSS).Value
 
 		v := models.TerraformAvailableVersion{
 			Version:   version,
