@@ -25,7 +25,7 @@ func NewDynamoDBBackend() backend.RegistryProviderBackend {
 }
 
 func (d *DynamoDBBackend) ConfigureBackend(_ context.Context) {
-	d.ProviderTableName = "terraform_providers_new"
+	d.ProviderTableName = "terraform_providers"
 	d.ModuleTableName = "terraform_modules"
 }
 
@@ -277,7 +277,7 @@ func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registryt
 		return err
 	}
 	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String("terraform_providers_new"),
+		TableName: aws.String(d.ProviderTableName),
 		Item:      item,
 	})
 
