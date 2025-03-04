@@ -1,11 +1,11 @@
 package main
 
-import "go-terraform-registry/internal/service"
+import "go-terraform-registry/internal/server"
 
 var (
 	version string = "dev"
 )
 
 func main() {
-	service.StartServer(version)
+	server.StartServer(version)
 }

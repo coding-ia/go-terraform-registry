@@ -241,6 +241,42 @@ func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters regi
 	return modules, nil
 }
 
+func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error {
+	gpgPublicKeys := []types.AttributeValue{
+		&types.AttributeValueMemberM{
+			Value: map[string]types.AttributeValue{
+				"ascii_armor": &types.AttributeValueMemberS{Value: provider.GPGASCIIArmor},
+				"key_id":      &types.AttributeValueMemberS{Value: provider.GPGFingerprint},
+			},
+		},
+	}
+
+	item := map[string]types.AttributeValue{
+		"provider":              &types.AttributeValueMemberS{Value: provider.Name},
+		"release":               &types.AttributeValueMemberS{Value: provider.Release},
+		"download_url":          &types.AttributeValueMemberS{Value: provider.DownloadUrl},
+		"filename":              &types.AttributeValueMemberS{Value: provider.Filename},
+		"protocols":             &types.AttributeValueMemberSS{Value: provider.Protocols},
+		"shasum":                &types.AttributeValueMemberS{Value: provider.SHASUM},
+		"shasums_signature_url": &types.AttributeValueMemberS{Value: provider.SHASUMSigUrl},
+		"shasums_url":           &types.AttributeValueMemberS{Value: provider.SHASUMUrl},
+		"gpg_public_keys": &types.AttributeValueMemberL{
+			Value: gpgPublicKeys,
+		},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String("terraform_providers"),
+		Item:      item,
+	})
+
+	return nil
+}
+
 func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
