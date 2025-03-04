@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"context"
@@ -12,11 +12,10 @@ import (
 )
 
 var (
-	version   string = "dev"
 	ginLambda *ginadapter.GinLambda
 )
 
-func main() {
+func StartServer(version string) {
 	ctx := context.Background()
 
 	if version != "dev" {
