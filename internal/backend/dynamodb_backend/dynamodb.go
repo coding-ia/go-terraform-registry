@@ -10,7 +10,6 @@ import (
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/models"
 	registrytypes "go-terraform-registry/internal/types"
-	"log"
 	"strings"
 )
 
@@ -31,13 +30,6 @@ func (d *DynamoDBBackend) ConfigureBackend(_ context.Context) {
 }
 
 func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters) (*models.TerraformProviderPlatformResponse, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-
-	svc := dynamodb.NewFromConfig(cfg)
-
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
 	releaseName := fmt.Sprintf("%s#%s#%s", parameters.Version, parameters.OS, parameters.Architecture)
 
@@ -53,6 +45,10 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 		},
 	}
 
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
@@ -103,13 +99,6 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 }
 
 func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters) (*models.TerraformAvailableProvider, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-
-	svc := dynamodb.NewFromConfig(cfg)
-
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
 
 	params := &dynamodb.QueryInput{
@@ -120,6 +109,10 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 		},
 	}
 
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
@@ -169,13 +162,6 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 }
 
 func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-
-	svc := dynamodb.NewFromConfig(cfg)
-
 	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
 
 	params := &dynamodb.QueryInput{
@@ -190,6 +176,10 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 		},
 	}
 
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
@@ -204,13 +194,6 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 }
 
 func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatalf("unable to load SDK config, %v", err)
-	}
-
-	svc := dynamodb.NewFromConfig(cfg)
-
 	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
 
 	params := &dynamodb.QueryInput{
@@ -224,6 +207,10 @@ func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters regi
 		},
 	}
 
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := svc.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
@@ -252,6 +239,51 @@ func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters regi
 	}
 
 	return modules, nil
+}
+
+func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error {
+	gpgPublicKeys := []types.AttributeValue{
+		&types.AttributeValueMemberM{
+			Value: map[string]types.AttributeValue{
+				"ascii_armor": &types.AttributeValueMemberS{Value: provider.GPGASCIIArmor},
+				"key_id":      &types.AttributeValueMemberS{Value: provider.GPGFingerprint},
+			},
+		},
+	}
+
+	item := map[string]types.AttributeValue{
+		"provider":              &types.AttributeValueMemberS{Value: provider.Name},
+		"release":               &types.AttributeValueMemberS{Value: provider.Release},
+		"download_url":          &types.AttributeValueMemberS{Value: provider.DownloadUrl},
+		"filename":              &types.AttributeValueMemberS{Value: provider.Filename},
+		"protocols":             &types.AttributeValueMemberSS{Value: provider.Protocols},
+		"shasum":                &types.AttributeValueMemberS{Value: provider.SHASUM},
+		"shasums_signature_url": &types.AttributeValueMemberS{Value: provider.SHASUMSigUrl},
+		"shasums_url":           &types.AttributeValueMemberS{Value: provider.SHASUMUrl},
+		"gpg_public_keys": &types.AttributeValueMemberL{
+			Value: gpgPublicKeys,
+		},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String("terraform_providers"),
+		Item:      item,
+	})
+
+	return nil
+}
+
+func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load SDK config, %v", err)
+	}
+
+	return dynamodb.NewFromConfig(cfg), nil
 }
 
 func mergeProtocols(protocols *[]string, additionalProtocols []string) {
