@@ -129,28 +129,35 @@ func publishProvider(ctx context.Context) {
 	}
 	fingerprint := getKeyFingerprint(asciiArmor)
 
+	provider := &registrytypes.ProviderImport{
+		Name:           publishOptions.ProviderName,
+		SHASUMUrl:      shaUrl,
+		SHASUMSigUrl:   shaSigUrl,
+		Protocols:      manifest.Metadata.ProtocolVersions,
+		GPGASCIIArmor:  asciiArmor,
+		GPGFingerprint: fingerprint[0],
+	}
+
 	for k, v := range providers {
 		name := strings.TrimSuffix(k, ".zip")
 		parts := strings.Split(name, "_")
 
-		provider := &registrytypes.ProviderImport{
-			Name:           publishOptions.ProviderName,
-			Release:        fmt.Sprintf("%s#%s#%s", parts[1], parts[2], parts[3]),
-			SHASUM:         shas[k],
-			SHASUMUrl:      shaUrl,
-			SHASUMSigUrl:   shaSigUrl,
-			Protocols:      manifest.Metadata.ProtocolVersions,
-			Filename:       k,
-			DownloadUrl:    v,
-			GPGASCIIArmor:  asciiArmor,
-			GPGFingerprint: fingerprint[0],
+		provider.Version = parts[1]
+		pri := &registrytypes.ProviderReleaseImport{
+			DownloadUrl:  v,
+			Filename:     k,
+			SHASUM:       shas[k],
+			OS:           parts[2],
+			Architecture: parts[3],
 		}
 
-		b := config.SelectBackend(ctx, "dynamodb")
-		err = b.ImportProvider(ctx, *provider)
-		if err != nil {
-			fmt.Printf("Error creating provider entry: %v", err)
-		}
+		provider.Release = append(provider.Release, *pri)
+	}
+
+	b := config.SelectBackend(ctx, "dynamodb")
+	err = b.ImportProvider(ctx, *provider)
+	if err != nil {
+		fmt.Printf("Error creating provider entry: %v", err)
 	}
 }
 

@@ -25,23 +25,22 @@ func NewDynamoDBBackend() backend.RegistryProviderBackend {
 }
 
 func (d *DynamoDBBackend) ConfigureBackend(_ context.Context) {
-	d.ProviderTableName = "terraform_providers"
+	d.ProviderTableName = "terraform_providers_new"
 	d.ModuleTableName = "terraform_modules"
 }
 
 func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters) (*models.TerraformProviderPlatformResponse, error) {
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
-	releaseName := fmt.Sprintf("%s#%s#%s", parameters.Version, parameters.OS, parameters.Architecture)
 
 	params := &dynamodb.QueryInput{
 		TableName:              aws.String(d.ProviderTableName),
-		KeyConditionExpression: aws.String("provider = :p and #r = :r"),
+		KeyConditionExpression: aws.String("provider = :p and #v = :v"),
 		ExpressionAttributeNames: map[string]string{
-			"#r": "release",
+			"#v": "version",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":p": &types.AttributeValueMemberS{Value: providerName},
-			":r": &types.AttributeValueMemberS{Value: releaseName},
+			":v": &types.AttributeValueMemberS{Value: parameters.Version},
 		},
 	}
 
@@ -55,16 +54,12 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 	}
 
 	if resp.Count == 1 {
-		release := resp.Items[0]["release"].(*types.AttributeValueMemberS).Value
-		filename := resp.Items[0]["filename"].(*types.AttributeValueMemberS).Value
-		downloadUrl := resp.Items[0]["download_url"].(*types.AttributeValueMemberS).Value
+		protocols := resp.Items[0]["protocols"].(*types.AttributeValueMemberSS).Value
 		shaSumsUrl := resp.Items[0]["shasums_url"].(*types.AttributeValueMemberS).Value
 		shaSumsSignatureUrl := resp.Items[0]["shasums_signature_url"].(*types.AttributeValueMemberS).Value
-		shaSum := resp.Items[0]["shasum"].(*types.AttributeValueMemberS).Value
-		protocols := resp.Items[0]["protocols"].(*types.AttributeValueMemberSS).Value
-		gpgKeys := resp.Items[0]["gpg_public_keys"].(*types.AttributeValueMemberL).Value
 
 		var keys []models.GPGPublicKeys
+		gpgKeys := resp.Items[0]["gpg_public_keys"].(*types.AttributeValueMemberL).Value
 		for _, item := range gpgKeys {
 			m := item.(*types.AttributeValueMemberM).Value
 			keyId := m["key_id"].(*types.AttributeValueMemberS).Value
@@ -76,23 +71,32 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 			})
 		}
 
-		parts := strings.Split(release, "#")
-
 		response := &models.TerraformProviderPlatformResponse{
 			Protocols:           protocols,
-			OS:                  parts[1],
-			Arch:                parts[2],
-			Filename:            filename,
-			DownloadUrl:         downloadUrl,
 			ShasumsUrl:          shaSumsUrl,
 			ShasumsSignatureUrl: shaSumsSignatureUrl,
-			Shasum:              shaSum,
 			SigningKeys: models.SigningKeys{
 				GPGPublicKeys: keys,
 			},
 		}
 
-		return response, nil
+		releaseList := resp.Items[0]["release"].(*types.AttributeValueMemberL).Value
+		for _, item := range releaseList {
+			releaseItem := item.(*types.AttributeValueMemberM).Value
+			os := releaseItem["os"].(*types.AttributeValueMemberS).Value
+			arch := releaseItem["arch"].(*types.AttributeValueMemberS).Value
+
+			if strings.EqualFold(os, parameters.OS) &&
+				strings.EqualFold(arch, parameters.Architecture) {
+				response.Filename = releaseItem["filename"].(*types.AttributeValueMemberS).Value
+				response.DownloadUrl = releaseItem["download_url"].(*types.AttributeValueMemberS).Value
+				response.Shasum = releaseItem["shasum"].(*types.AttributeValueMemberS).Value
+				response.OS = os
+				response.Arch = arch
+
+				return response, nil
+			}
+		}
 	}
 
 	return nil, nil
@@ -124,31 +128,25 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 
 	versions := make(map[string]models.TerraformAvailableVersion)
 	for _, item := range resp.Items {
-		release := item["release"].(*types.AttributeValueMemberS).Value
-		protocols := item["protocols"].(*types.AttributeValueMemberSS).Value
-		parts := strings.Split(release, "#")
+		version := item["version"].(*types.AttributeValueMemberS).Value
+		protocols := item["protocol"].(*types.AttributeValueMemberSS).Value
 
-		value, ok := versions[parts[0]]
-
-		if ok {
-			value.Platforms = append(value.Platforms, models.TerraformAvailablePlatform{
-				OS:   parts[1],
-				Arch: parts[2],
-			})
-			mergeProtocols(&value.Protocols, protocols)
-			versions[parts[0]] = value
-		} else {
-			versions[parts[0]] = models.TerraformAvailableVersion{
-				Version:   parts[0],
-				Protocols: protocols,
-				Platforms: []models.TerraformAvailablePlatform{
-					{
-						OS:   parts[1],
-						Arch: parts[2],
-					},
-				},
-			}
+		v := models.TerraformAvailableVersion{
+			Version:   version,
+			Protocols: protocols,
 		}
+
+		releaseList := item["release"].(*types.AttributeValueMemberL)
+		for _, release := range releaseList.Value {
+			releaseItem := release.(*types.AttributeValueMemberM)
+
+			v.Platforms = append(v.Platforms, models.TerraformAvailablePlatform{
+				OS:   extractString(releaseItem.Value, "os"),
+				Arch: extractString(releaseItem.Value, "arch"),
+			})
+		}
+
+		versions[version] = v
 	}
 
 	provider := &models.TerraformAvailableProvider{}
@@ -159,38 +157,6 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 	}
 
 	return provider, nil
-}
-
-func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
-	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
-
-	params := &dynamodb.QueryInput{
-		TableName:              aws.String(d.ModuleTableName),
-		KeyConditionExpression: aws.String("#m = :m and version = :v"),
-		ExpressionAttributeNames: map[string]string{
-			"#m": "module",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":m": &types.AttributeValueMemberS{Value: moduleName},
-			":v": &types.AttributeValueMemberS{Value: parameters.Version},
-		},
-	}
-
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query items, %v", err)
-	}
-
-	if resp.Count == 1 {
-		uri := resp.Items[0]["download_url"].(*types.AttributeValueMemberS).Value
-		return &uri, nil
-	}
-
-	return nil, nil
 }
 
 func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
@@ -241,7 +207,47 @@ func (d *DynamoDBBackend) GetModuleVersions(ctx context.Context, parameters regi
 	return modules, nil
 }
 
+func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
+	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
+
+	params := &dynamodb.QueryInput{
+		TableName:              aws.String(d.ModuleTableName),
+		KeyConditionExpression: aws.String("#m = :m and version = :v"),
+		ExpressionAttributeNames: map[string]string{
+			"#m": "module",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":m": &types.AttributeValueMemberS{Value: moduleName},
+			":v": &types.AttributeValueMemberS{Value: parameters.Version},
+		},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := svc.Query(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items, %v", err)
+	}
+
+	if resp.Count == 1 {
+		uri := resp.Items[0]["download_url"].(*types.AttributeValueMemberS).Value
+		return &uri, nil
+	}
+
+	return nil, nil
+}
+
 func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error {
+	item := map[string]types.AttributeValue{
+		"provider":              &types.AttributeValueMemberS{Value: provider.Name},
+		"version":               &types.AttributeValueMemberS{Value: provider.Version},
+		"protocols":             &types.AttributeValueMemberSS{Value: provider.Protocols},
+		"shasums_signature_url": &types.AttributeValueMemberS{Value: provider.SHASUMSigUrl},
+		"shasums_url":           &types.AttributeValueMemberS{Value: provider.SHASUMUrl},
+	}
+
 	gpgPublicKeys := []types.AttributeValue{
 		&types.AttributeValueMemberM{
 			Value: map[string]types.AttributeValue{
@@ -250,31 +256,39 @@ func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registryt
 			},
 		},
 	}
+	item["gpg_public_keys"] = &types.AttributeValueMemberL{Value: gpgPublicKeys}
 
-	item := map[string]types.AttributeValue{
-		"provider":              &types.AttributeValueMemberS{Value: provider.Name},
-		"release":               &types.AttributeValueMemberS{Value: provider.Release},
-		"download_url":          &types.AttributeValueMemberS{Value: provider.DownloadUrl},
-		"filename":              &types.AttributeValueMemberS{Value: provider.Filename},
-		"protocols":             &types.AttributeValueMemberSS{Value: provider.Protocols},
-		"shasum":                &types.AttributeValueMemberS{Value: provider.SHASUM},
-		"shasums_signature_url": &types.AttributeValueMemberS{Value: provider.SHASUMSigUrl},
-		"shasums_url":           &types.AttributeValueMemberS{Value: provider.SHASUMUrl},
-		"gpg_public_keys": &types.AttributeValueMemberL{
-			Value: gpgPublicKeys,
-		},
+	var releases []types.AttributeValue
+	for _, release := range provider.Release {
+		releases = append(releases, &types.AttributeValueMemberM{
+			Value: map[string]types.AttributeValue{
+				"arch":         &types.AttributeValueMemberS{Value: release.Architecture},
+				"download_url": &types.AttributeValueMemberS{Value: release.DownloadUrl},
+				"filename":     &types.AttributeValueMemberS{Value: release.Filename},
+				"os":           &types.AttributeValueMemberS{Value: release.OS},
+				"shasum":       &types.AttributeValueMemberS{Value: release.SHASUM},
+			},
+		})
 	}
+	item["release"] = &types.AttributeValueMemberL{Value: releases}
 
 	svc, err := createDynamoDBClient(ctx)
 	if err != nil {
 		return err
 	}
 	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String("terraform_providers"),
+		TableName: aws.String("terraform_providers_new"),
 		Item:      item,
 	})
 
 	return nil
+}
+
+func extractString(m map[string]types.AttributeValue, key string) string {
+	if v, ok := m[key].(*types.AttributeValueMemberS); ok {
+		return v.Value
+	}
+	return ""
 }
 
 func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
@@ -284,23 +298,4 @@ func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
 	}
 
 	return dynamodb.NewFromConfig(cfg), nil
-}
-
-func mergeProtocols(protocols *[]string, additionalProtocols []string) {
-	uniqueSet := make(map[string]struct{}, len(*protocols))
-	var result []string
-
-	for _, protocol := range *protocols {
-		uniqueSet[protocol] = struct{}{}
-		result = append(result, protocol)
-	}
-
-	for _, item := range additionalProtocols {
-		if _, exists := uniqueSet[item]; !exists {
-			uniqueSet[item] = struct{}{}
-			result = append(result, item)
-		}
-	}
-
-	*protocols = result
 }
