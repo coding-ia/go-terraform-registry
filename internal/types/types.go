@@ -27,14 +27,20 @@ type ModuleDownloadParameters struct {
 }
 
 type ProviderImport struct {
-	DownloadUrl    string
-	Filename       string
 	GPGASCIIArmor  string
 	GPGFingerprint string
 	Name           string
-	Release        string
-	SHASUM         string
+	Version        string
 	SHASUMUrl      string
 	SHASUMSigUrl   string
 	Protocols      []string
+	Release        []ProviderReleaseImport
+}
+
+type ProviderReleaseImport struct {
+	DownloadUrl  string
+	Filename     string
+	SHASUM       string
+	OS           string
+	Architecture string
 }
