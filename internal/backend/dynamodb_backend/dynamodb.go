@@ -281,7 +281,7 @@ func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registryt
 		Item:      item,
 	})
 
-	return nil
+	return err
 }
 
 func extractString(m map[string]types.AttributeValue, key string) string {
