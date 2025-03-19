@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -165,11 +166,18 @@ func (i *ImportController) ModuleImport(c *gin.Context) {
 		return
 	}
 
+	baseUrl, err := getBaseURL(*release.HTMLURL)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	version := strings.TrimPrefix(requestData.Tag, "v")
+	downloadUrl := fmt.Sprintf("%s/%s/%s/archive/refs/tags/%s.zip", baseUrl, requestData.Owner, requestData.Repository, requestData.Tag)
 
 	request := registrytypes.ModuleImport{
 		Name:        requestData.Name,
-		DownloadUrl: release.GetZipballURL(),
+		DownloadUrl: downloadUrl,
 		Version:     version,
 	}
 
@@ -178,6 +186,15 @@ func (i *ImportController) ModuleImport(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+}
+
+func getBaseURL(raw string) (string, error) {
+	parsedURL, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host), nil
 }
 
 func parseSha256SUMS(content []byte) (map[string]string, error) {
