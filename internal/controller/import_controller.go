@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/go-github/v69/github"
 	"go-terraform-registry/internal/backend"
+	"go-terraform-registry/internal/githubclient"
 	"go-terraform-registry/internal/models"
 	registrytypes "go-terraform-registry/internal/types"
 	"golang.org/x/crypto/openpgp"
@@ -47,13 +47,21 @@ func (i *ImportController) ProviderImport(c *gin.Context) {
 		return
 	}
 
-	client := github.NewClient(nil)
-	release, _, err := client.Repositories.GetReleaseByTag(c.Request.Context(), requestData.Owner, requestData.Repository, requestData.Tag)
+	client, err := githubclient.NewClient(c.Request.Context(), requestData.Token, requestData.GitHubBaseURL)
 	if err != nil {
-		fmt.Printf("Error getting release: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if client == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to create github client connection"})
+		return
 	}
 
-	fmt.Printf("Release: %s\n", release.GetName())
+	release, _, err := client.Repositories.GetReleaseByTag(c.Request.Context(), requestData.Owner, requestData.Repository, requestData.Tag)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	var shas map[string]string
 	var shaUrl string
@@ -66,12 +74,12 @@ func (i *ImportController) ProviderImport(c *gin.Context) {
 			shaUrl = asset.GetBrowserDownloadURL()
 			content, err := getHTTPContent(shaUrl)
 			if err != nil {
-				fmt.Printf("Error getting SHA256SUMS: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			shas, err = parseSha256SUMS(content)
 			if err != nil {
-				fmt.Printf("Error parsing SHA256SUMS: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			continue
@@ -80,12 +88,12 @@ func (i *ImportController) ProviderImport(c *gin.Context) {
 		if strings.HasSuffix(asset.GetName(), "_manifest.json") {
 			content, err := getHTTPContent(asset.GetBrowserDownloadURL())
 			if err != nil {
-				fmt.Printf("Error getting manifest: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			err = json.Unmarshal(content, &manifest)
 			if err != nil {
-				fmt.Printf("Error parsing manifest: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 			continue
@@ -128,7 +136,8 @@ func (i *ImportController) ProviderImport(c *gin.Context) {
 
 	err = i.Backend.ImportProvider(c.Request.Context(), *provider)
 	if err != nil {
-		fmt.Printf("Error creating provider entry: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 }
 
@@ -140,13 +149,21 @@ func (i *ImportController) ModuleImport(c *gin.Context) {
 		return
 	}
 
-	client := github.NewClient(nil)
-	release, _, err := client.Repositories.GetReleaseByTag(c.Request.Context(), requestData.Owner, requestData.Repository, requestData.Tag)
+	client, err := githubclient.NewClient(c.Request.Context(), requestData.Token, requestData.GitHubBaseURL)
 	if err != nil {
-		fmt.Printf("Error getting release: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if client == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to create github client connection"})
+		return
 	}
 
-	fmt.Printf("Release: %s\n", release.GetName())
+	release, _, err := client.Repositories.GetReleaseByTag(c.Request.Context(), requestData.Owner, requestData.Repository, requestData.Tag)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	version := strings.TrimPrefix(requestData.Tag, "v")
 
@@ -158,7 +175,8 @@ func (i *ImportController) ModuleImport(c *gin.Context) {
 
 	err = i.Backend.ImportModule(c.Request.Context(), request)
 	if err != nil {
-		fmt.Printf("Error importing module: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 }
 

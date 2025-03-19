@@ -26,12 +26,20 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 		Config: config,
 	}
 
+	endpoint := github.Endpoint
+	if config.OauthAuthURL != "" && config.OauthTokenURL != "" {
+		endpoint = oauth2.Endpoint{
+			AuthURL:  fmt.Sprintf("%s/login/oauth/authorize", endpoint),
+			TokenURL: fmt.Sprintf("%s/login/oauth/access_token", endpoint),
+		}
+	}
+
 	ac.OauthConfig = &oauth2.Config{
 		ClientID:     config.OauthClientID,
 		ClientSecret: config.OauthClientSecret,
-		RedirectURL:  "https://04c1-2601-201-8481-34d0-e544-bbdb-ab20-fddb.ngrok-free.app/oauth/callback",
+		RedirectURL:  config.OauthClientRedirectURL,
 		Scopes:       []string{"user"},
-		Endpoint:     github.Endpoint,
+		Endpoint:     endpoint,
 	}
 
 	authentication := r.Group("/oauth")
