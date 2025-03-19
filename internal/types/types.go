@@ -44,3 +44,9 @@ type ProviderReleaseImport struct {
 	OS           string
 	Architecture string
 }
+
+type ModuleImport struct {
+	Name        string
+	DownloadUrl string
+	Version     string
+}
