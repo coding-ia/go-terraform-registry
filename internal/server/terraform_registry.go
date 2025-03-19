@@ -25,7 +25,7 @@ func StartServer(version string) {
 	r := gin.Default()
 
 	c := config.GetRegistryConfig()
-	b := config.SelectBackend(ctx, "dynamodb")
+	b := config.SelectBackend(ctx, c.Backend)
 
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, b)

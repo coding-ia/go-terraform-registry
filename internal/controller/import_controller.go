@@ -132,8 +132,34 @@ func (i *ImportController) ProviderImport(c *gin.Context) {
 	}
 }
 
-func (i *ImportController) ModuleImport(_ *gin.Context) {
+func (i *ImportController) ModuleImport(c *gin.Context) {
+	var requestData models.ImportModuleData
 
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	client := github.NewClient(nil)
+	release, _, err := client.Repositories.GetReleaseByTag(c.Request.Context(), requestData.Owner, requestData.Repository, requestData.Tag)
+	if err != nil {
+		fmt.Printf("Error getting release: %v", err)
+	}
+
+	fmt.Printf("Release: %s\n", release.GetName())
+
+	version := strings.TrimPrefix(requestData.Tag, "v")
+
+	request := registrytypes.ModuleImport{
+		Name:        requestData.Name,
+		DownloadUrl: release.GetZipballURL(),
+		Version:     version,
+	}
+
+	err = i.Backend.ImportModule(c.Request.Context(), request)
+	if err != nil {
+		fmt.Printf("Error importing module: %v", err)
+	}
 }
 
 func parseSha256SUMS(content []byte) (map[string]string, error) {

@@ -13,4 +13,5 @@ type RegistryProviderBackend interface {
 	GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error)
 	GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error)
 	ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error
+	ImportModule(ctx context.Context, module registrytypes.ModuleImport) error
 }

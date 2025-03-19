@@ -7,6 +7,7 @@ import (
 
 type RegistryConfig struct {
 	AllowAnonymousAccess bool
+	Backend              string
 	S3BucketName         string
 	S3BucketRegion       string
 	TokenEncryptionKey   string
@@ -17,6 +18,7 @@ type RegistryConfig struct {
 func GetRegistryConfig() RegistryConfig {
 	config := RegistryConfig{
 		AllowAnonymousAccess: getBoolEnv("ALLOW_ANONYMOUS_ACCESS", true),
+		Backend:              os.Getenv("BACKEND"),
 		S3BucketName:         os.Getenv("S3_BUCKET_NAME"),
 		S3BucketRegion:       os.Getenv("S3_BUCKET_REGION"),
 		TokenEncryptionKey:   os.Getenv("TOKEN_ENCRYPTION_KEY"),

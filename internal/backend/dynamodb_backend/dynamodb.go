@@ -126,7 +126,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 		return nil, nil
 	}
 
-	versions := make(map[string]models.TerraformAvailableVersion)
+	var versions []models.TerraformAvailableVersion
 	for _, item := range resp.Items {
 		version := item["version"].(*types.AttributeValueMemberS).Value
 		protocols := item["protocols"].(*types.AttributeValueMemberSS).Value
@@ -145,15 +145,11 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 				Arch: extractString(releaseItem.Value, "arch"),
 			})
 		}
-
-		versions[version] = v
+		versions = append(versions, v)
 	}
 
-	provider := &models.TerraformAvailableProvider{}
-	if versions != nil {
-		for _, value := range versions {
-			provider.Versions = append(provider.Versions, value)
-		}
+	provider := &models.TerraformAvailableProvider{
+		Versions: versions,
 	}
 
 	return provider, nil
@@ -282,6 +278,10 @@ func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registryt
 	})
 
 	return err
+}
+
+func (d *DynamoDBBackend) ImportModule(ctx context.Context, module registrytypes.ModuleImport) error {
+	return nil
 }
 
 func extractString(m map[string]types.AttributeValue, key string) string {
