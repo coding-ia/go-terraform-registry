@@ -23,15 +23,17 @@ type RegistryProvidersResponse struct {
 	Data RegistryProvidersResponseData `json:"data"`
 }
 
+type RegistryProvidersResponsePermissions struct {
+	CanDelete bool `json:"can-delete"`
+}
+
 type RegistryProvidersResponseAttributes struct {
-	Name         string    `json:"name"`
-	Namespace    string    `json:"namespace"`
-	CreatedAt    time.Time `json:"created-at"`
-	UpdatedAt    time.Time `json:"updated-at"`
-	RegistryName string    `json:"registry-name"`
-	Permissions  struct {
-		CanDelete bool `json:"can-delete"`
-	} `json:"permissions"`
+	Name         string                               `json:"name"`
+	Namespace    string                               `json:"namespace"`
+	CreatedAt    time.Time                            `json:"created-at"`
+	UpdatedAt    time.Time                            `json:"updated-at"`
+	RegistryName string                               `json:"registry-name"`
+	Permissions  RegistryProvidersResponsePermissions `json:"permissions"`
 }
 
 type RegistryProvidersResponseRegistryProviderVersions struct {

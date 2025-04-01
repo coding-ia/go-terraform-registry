@@ -235,7 +235,7 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
 	return nil, nil
 }
 
@@ -243,7 +243,7 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
 	return nil, nil
 }
 

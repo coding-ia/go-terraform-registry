@@ -1,25 +1,13 @@
 package badgerdb_backend
 
 type Provider struct {
-	OS           string `json:"os"`
-	Architecture string `json:"architecture"`
-	Filename     string `json:"filename"`
-	DownloadURL  string `json:"download_url"`
-	ShaSUM       string `json:"sha_sum"`
+	ID string `json:"id"`
 }
 
 type ProviderVersion struct {
-	Version        string     `json:"version"`
-	Name           string     `json:"name"`
-	Protocols      []string   `json:"protocols"`
-	SHASUMUrl      string     `json:"shasums_url"`
-	SHASUMSigUrl   string     `json:"shasums_signature_url"`
-	Provider       []Provider `json:"provider"`
-	GPGASCIIArmor  string     `json:"gpg_ascii_armor"`
-	GPGFingerprint string     `json:"gpg_fingerprint"`
-}
-
-type ModuleVersion struct {
-	Version     string `json:"version"`
-	DownloadURL string `json:"download_url"`
+	ID            string   `json:"id"`
+	Version       string   `json:"version"`
+	Protocols     []string `json:"protocols"`
+	GPGASCIIArmor string   `json:"gpg_ascii_armor"`
+	GPGKeyID      string   `json:"gpg_key_id"`
 }

@@ -26,27 +26,9 @@ type ModuleDownloadParameters struct {
 	Version   string
 }
 
-type ProviderImport struct {
-	GPGASCIIArmor  string
-	GPGFingerprint string
-	Name           string
-	Version        string
-	SHASUMUrl      string
-	SHASUMSigUrl   string
-	Protocols      []string
-	Release        []ProviderReleaseImport
-}
-
-type ProviderReleaseImport struct {
-	DownloadUrl  string
-	Filename     string
-	SHASUM       string
-	OS           string
-	Architecture string
-}
-
-type ModuleImport struct {
-	Name        string
-	DownloadUrl string
-	Version     string
+type APIParameters struct {
+	Organization string
+	Registry     string
+	Namespace    string
+	Name         string
 }

@@ -6,6 +6,7 @@ import (
 	registryconfig "go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/storage"
+	registrytypes "go-terraform-registry/internal/types"
 	"net/http"
 )
 
@@ -47,8 +48,18 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 		return
 	}
 
-	var response models.RegistryProvidersResponse
-	c.JSON(http.StatusOK, response)
+	organization := c.Param("organization")
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+	}
+
+	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (a *APIController) GPGKeys(c *gin.Context) {
@@ -59,8 +70,13 @@ func (a *APIController) GPGKeys(c *gin.Context) {
 		return
 	}
 
-	var response models.GPGKeyResponse
-	c.JSON(http.StatusOK, response)
+	resp, err := a.Backend.GPGKey(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {
@@ -71,8 +87,25 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 		return
 	}
 
-	var response models.RegistryProviderVersionsResponse
-	c.JSON(http.StatusOK, response)
+	organization := c.Param("organization")
+	registry := c.Param("registry")
+	namespace := c.Param("ns")
+	name := c.Param("name")
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+	}
+
+	resp, err := a.Backend.RegistryProviderVersions(c.Request.Context(), parameters, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
