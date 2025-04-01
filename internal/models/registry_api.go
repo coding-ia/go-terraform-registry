@@ -99,28 +99,28 @@ type GPGKeyResponseData struct {
 	Links      RegistryProviderLinks    `json:"links"`
 }
 
-// RegistryProviderVersionRequest - Request Model
-type RegistryProviderVersionRequest struct {
-	Data RegistryProviderVersionRequestData `json:"data"`
+// RegistryProviderVersionsRequest - Request Model
+type RegistryProviderVersionsRequest struct {
+	Data RegistryProviderVersionsRequestData `json:"data"`
 }
 
-type RegistryProviderVersionRequestAttributes struct {
+type RegistryProviderVersionsRequestAttributes struct {
 	Version   string   `json:"version"`
 	KeyID     string   `json:"key-id"`
 	Protocols []string `json:"protocols"`
 }
 
-type RegistryProviderVersionRequestData struct {
-	Type       string                                   `json:"type"`
-	Attributes RegistryProviderVersionRequestAttributes `json:"attributes"`
+type RegistryProviderVersionsRequestData struct {
+	Type       string                                    `json:"type"`
+	Attributes RegistryProviderVersionsRequestAttributes `json:"attributes"`
 }
 
-// RegistryProviderVersionResponse - Response Model
-type RegistryProviderVersionResponse struct {
-	Data RegistryProviderVersionResponseData `json:"data"`
+// RegistryProviderVersionsResponse - Response Model
+type RegistryProviderVersionsResponse struct {
+	Data RegistryProviderVersionsResponseData `json:"data"`
 }
 
-type RegistryProviderVersionResponseAttributes struct {
+type RegistryProviderVersionsResponseAttributes struct {
 	Version            string                      `json:"version"`
 	CreatedAt          time.Time                   `json:"created-at"`
 	UpdatedAt          time.Time                   `json:"updated-at"`
@@ -149,41 +149,42 @@ type RegistryProviderPlatforms struct {
 	Links RegistryProviderPlatformLinks `json:"links"`
 }
 
-type RegistryProviderVersionResponseRelationships struct {
+type RegistryProviderVersionsResponseRelationships struct {
 	RegistryProvider          RegistryProviderRelation  `json:"registry-provider"`
 	RegistryProviderPlatforms RegistryProviderPlatforms `json:"registry-provider-platforms"`
 }
 
-type RegistryProviderVersionResponseData struct {
-	ID            string                                       `json:"id"`
-	Type          string                                       `json:"type"`
-	Attributes    RegistryProviderVersionResponseAttributes    `json:"attributes"`
-	Relationships RegistryProviderVersionResponseRelationships `json:"relationships"`
-	Links         RegistryProviderLinks                        `json:"links"`
+type RegistryProviderVersionsResponseData struct {
+	ID            string                                        `json:"id"`
+	Type          string                                        `json:"type"`
+	Attributes    RegistryProviderVersionsResponseAttributes    `json:"attributes"`
+	Relationships RegistryProviderVersionsResponseRelationships `json:"relationships"`
+	Links         RegistryProviderLinks                         `json:"links"`
 }
 
-// RegistryProviderVersionPlatformRequest - Request Model
-type RegistryProviderVersionPlatformRequest struct {
-	Data RegistryProviderVersionPlatformRequestData `json:"data"`
+// RegistryProviderVersionPlatformsRequest - Request Model
+type RegistryProviderVersionPlatformsRequest struct {
+	Data RegistryProviderVersionPlatformsRequestData `json:"data"`
 }
 
-type RegistryProviderVersionPlatformRequestData struct {
-	Type       string                                           `json:"type"`
-	Attributes RegistryProviderVersionPlatformRequestAttributes `json:"attributes"`
+type RegistryProviderVersionPlatformsRequestData struct {
+	Type       string                                            `json:"type"`
+	Attributes RegistryProviderVersionPlatformsRequestAttributes `json:"attributes"`
 }
 
-type RegistryProviderVersionPlatformRequestAttributes struct {
+type RegistryProviderVersionPlatformsRequestAttributes struct {
 	OS       string `json:"os"`
 	Arch     string `json:"arch"`
 	Shasum   string `json:"shasum"`
 	Filename string `json:"filename"`
 }
 
-type RegistryProviderVersionPlatformResponse struct {
-	Data RegistryProviderVersionPlatformResponseData `json:"data"`
+// RegistryProviderVersionPlatformsResponse - Response Model
+type RegistryProviderVersionPlatformsResponse struct {
+	Data RegistryProviderVersionPlatformsResponseData `json:"data"`
 }
 
-type RegistryProviderVersionPlatformLinks struct {
+type RegistryProviderVersionPlatformsLinks struct {
 	ProviderBinaryUpload string `json:"provider-binary-upload"`
 }
 
@@ -192,21 +193,21 @@ type ProviderVersion struct {
 	Type string `json:"type"`
 }
 
-type RegistryProviderVersionPlatformRelationships struct {
+type RegistryProviderVersionPlatformsRelationships struct {
 	RegistryProviderVersion struct {
 		Data ProviderVersion `json:"data"`
 	} `json:"registry-provider-version"`
 }
 
-type RegistryProviderVersionPlatformResponseData struct {
-	ID            string                                            `json:"id"`
-	Type          string                                            `json:"type"`
-	Attributes    RegistryProviderVersionPlatformResponseAttributes `json:"attributes"`
-	Relationships RegistryProviderVersionPlatformRelationships      `json:"relationships"`
-	Links         RegistryProviderVersionPlatformLinks              `json:"links"`
+type RegistryProviderVersionPlatformsResponseData struct {
+	ID            string                                             `json:"id"`
+	Type          string                                             `json:"type"`
+	Attributes    RegistryProviderVersionPlatformsResponseAttributes `json:"attributes"`
+	Relationships RegistryProviderVersionPlatformsRelationships      `json:"relationships"`
+	Links         RegistryProviderVersionPlatformsLinks              `json:"links"`
 }
 
-type RegistryProviderVersionPlatformResponseAttributes struct {
+type RegistryProviderVersionPlatformsResponseAttributes struct {
 	OS                     string                      `json:"os"`
 	Arch                   string                      `json:"arch"`
 	Filename               string                      `json:"filename"`

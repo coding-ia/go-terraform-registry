@@ -64,25 +64,25 @@ func (a *APIController) GPGKeys(c *gin.Context) {
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {
-	var req models.RegistryProviderVersionRequest
+	var req models.RegistryProviderVersionsRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	var response models.RegistryProviderVersionResponse
+	var response models.RegistryProviderVersionsResponse
 	c.JSON(http.StatusOK, response)
 }
 
 func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
-	var req models.RegistryProviderVersionPlatformRequest
+	var req models.RegistryProviderVersionPlatformsRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	var response models.RegistryProviderVersionPlatformResponse
+	var response models.RegistryProviderVersionPlatformsResponse
 	c.JSON(http.StatusOK, response)
 }

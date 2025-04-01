@@ -12,6 +12,9 @@ type RegistryProviderBackend interface {
 	GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters) (*models.TerraformAvailableProvider, error)
 	GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error)
 	GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error)
-	ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error
-	ImportModule(ctx context.Context, module registrytypes.ModuleImport) error
+
+	RegistryProviders(ctx context.Context, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error)
+	GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error)
+	RegistryProviderVersions(ctx context.Context, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error)
+	RegistryProviderVersionPlatforms(ctx context.Context, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error)
 }

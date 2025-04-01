@@ -235,53 +235,20 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) ImportProvider(ctx context.Context, provider registrytypes.ProviderImport) error {
-	item := map[string]types.AttributeValue{
-		"provider":              &types.AttributeValueMemberS{Value: provider.Name},
-		"version":               &types.AttributeValueMemberS{Value: provider.Version},
-		"protocols":             &types.AttributeValueMemberSS{Value: provider.Protocols},
-		"shasums_signature_url": &types.AttributeValueMemberS{Value: provider.SHASUMSigUrl},
-		"shasums_url":           &types.AttributeValueMemberS{Value: provider.SHASUMUrl},
-	}
-
-	gpgPublicKeys := []types.AttributeValue{
-		&types.AttributeValueMemberM{
-			Value: map[string]types.AttributeValue{
-				"ascii_armor": &types.AttributeValueMemberS{Value: provider.GPGASCIIArmor},
-				"key_id":      &types.AttributeValueMemberS{Value: provider.GPGFingerprint},
-			},
-		},
-	}
-	item["gpg_public_keys"] = &types.AttributeValueMemberL{Value: gpgPublicKeys}
-
-	var releases []types.AttributeValue
-	for _, release := range provider.Release {
-		releases = append(releases, &types.AttributeValueMemberM{
-			Value: map[string]types.AttributeValue{
-				"arch":         &types.AttributeValueMemberS{Value: release.Architecture},
-				"download_url": &types.AttributeValueMemberS{Value: release.DownloadUrl},
-				"filename":     &types.AttributeValueMemberS{Value: release.Filename},
-				"os":           &types.AttributeValueMemberS{Value: release.OS},
-				"shasum":       &types.AttributeValueMemberS{Value: release.SHASUM},
-			},
-		})
-	}
-	item["release"] = &types.AttributeValueMemberL{Value: releases}
-
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(d.ProviderTableName),
-		Item:      item,
-	})
-
-	return err
+func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+	return nil, nil
 }
 
-func (d *DynamoDBBackend) ImportModule(ctx context.Context, module registrytypes.ModuleImport) error {
-	return nil
+func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+	return nil, nil
+}
+
+func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+	return nil, nil
+}
+
+func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+	return nil, nil
 }
 
 func extractString(m map[string]types.AttributeValue, key string) string {
