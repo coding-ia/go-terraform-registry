@@ -2,9 +2,8 @@ package s3_storage
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
 	"time"
@@ -16,7 +15,7 @@ type S3Storage struct {
 	S3BucketName   string
 	S3BucketRegion string
 
-	s3svc *s3.S3
+	client *s3.Client
 }
 
 func NewS3Storage(config config.RegistryConfig) storage.RegistryProviderStorage {
@@ -27,37 +26,39 @@ func NewS3Storage(config config.RegistryConfig) storage.RegistryProviderStorage 
 }
 
 func (s *S3Storage) ConfigureStorage(ctx context.Context) error {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(s.S3BucketRegion)},
-	)
+	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return err
 	}
 
-	s.s3svc = s3.New(sess)
+	s.client = s3.NewFromConfig(cfg)
 	return nil
 }
 
 func (s *S3Storage) GenerateUploadURL(ctx context.Context, path string) (string, error) {
-	req, _ := s.s3svc.PutObjectRequest(&s3.PutObjectInput{
-		Bucket: aws.String(s.S3BucketName),
-		Key:    aws.String(path),
+	preSignClient := s3.NewPresignClient(s.client)
+	preSignedGetObject, err := preSignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket: &s.S3BucketName,
+		Key:    &path,
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = 60 * time.Minute
 	})
-	url, err := req.Presign(60 * time.Minute)
 	if err != nil {
 		return "", err
 	}
-	return url, nil
+	return preSignedGetObject.URL, nil
 }
 
 func (s *S3Storage) GenerateDownloadURL(ctx context.Context, path string) (string, error) {
-	req, _ := s.s3svc.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(s.S3BucketName),
-		Key:    aws.String(path),
+	preSignClient := s3.NewPresignClient(s.client)
+	preSignedGetObject, err := preSignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: &s.S3BucketName,
+		Key:    &path,
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = 60 * time.Minute
 	})
-	url, err := req.Presign(60 * time.Minute)
 	if err != nil {
 		return "", err
 	}
-	return url, nil
+	return preSignedGetObject.URL, nil
 }
