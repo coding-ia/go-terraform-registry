@@ -31,4 +31,5 @@ type APIParameters struct {
 	Registry     string
 	Namespace    string
 	Name         string
+	Version      string
 }

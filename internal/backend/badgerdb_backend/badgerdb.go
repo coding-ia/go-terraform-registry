@@ -169,8 +169,57 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 	return resp, nil
 }
 
-func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
-	return nil, nil
+func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pvKey := fmt.Sprintf("%s:%s:%s", b.ProviderVersionTableName, p.ID, parameters.Version)
+	var pv ProviderVersion
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionGet(db, pvKey, &pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	newUUID := uuid.New()
+	platform := ProviderPlatform{
+		ID:       newUUID.String(),
+		OS:       request.Data.Attributes.OS,
+		Arch:     request.Data.Attributes.Arch,
+		SHASum:   request.Data.Attributes.Shasum,
+		Filename: request.Data.Attributes.Filename,
+	}
+
+	pv.Platform = append(pv.Platform, platform)
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionSet(db, pvKey, pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.RegistryProviderVersionPlatformsResponse{
+		Data: models.RegistryProviderVersionPlatformsResponseData{
+			ID:   platform.ID,
+			Type: "registry-provider-platforms",
+			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+				OS:       platform.OS,
+				Arch:     platform.Arch,
+				Shasum:   platform.SHASum,
+				Filename: platform.Filename,
+			},
+		},
+	}
+
+	return resp, nil
 }
 
 func withBadgerDB(dbPath string, fn func(*badger.DB) error) error {
@@ -218,6 +267,19 @@ func providerVersionSet(db *badger.DB, key string, value ProviderVersion) error 
 	}
 	return db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), data)
+	})
+}
+
+func providerVersionGet(db *badger.DB, key string, value *ProviderVersion) error {
+	return db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(v []byte) error {
+			return json.Unmarshal(v, &value)
+		})
 	})
 }
 

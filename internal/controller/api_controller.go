@@ -109,10 +109,10 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 	shaSum := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS", parameters.Name, req.Data.Attributes.Version)
 	shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", parameters.Name, req.Data.Attributes.Version)
 
-	key := fmt.Sprintf("%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, req.Data.Attributes.Version)
 
-	shaSumURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s%s", key, shaSum))
-	shaSumSigURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s%s", key, shaSumSig))
+	shaSumURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSum))
+	shaSumSigURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
 
 	resp.Data.Links = models.RegistryProviderVersionsResponseLinks{
 		ShasumsUpload:    shaSumURL,
@@ -130,6 +130,32 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 		return
 	}
 
-	var response models.RegistryProviderVersionPlatformsResponse
-	c.JSON(http.StatusOK, response)
+	organization := c.Param("organization")
+	registry := c.Param("registry")
+	namespace := c.Param("ns")
+	name := c.Param("name")
+	version := c.Param("version")
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+		Version:      version,
+	}
+
+	resp, err := a.Backend.RegistryProviderVersionPlatforms(c.Request.Context(), parameters, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
+	uploadURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, req.Data.Attributes.Filename))
+
+	resp.Data.Links = models.RegistryProviderVersionPlatformsLinks{
+		ProviderBinaryUpload: uploadURL,
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

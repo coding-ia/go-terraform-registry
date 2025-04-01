@@ -247,7 +247,7 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
 	return nil, nil
 }
 
