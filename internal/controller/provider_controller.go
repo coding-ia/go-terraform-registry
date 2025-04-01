@@ -48,7 +48,11 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 		Architecture: c.Param("arch"),
 	}
 
-	provider, err := p.Backend.GetProvider(c.Request.Context(), params)
+	userParams := registrytypes.UserParameters{
+		Organization: p.Config.Organization,
+	}
+
+	provider, err := p.Backend.GetProvider(c.Request.Context(), params, userParams)
 	if err != nil {
 		log.Printf(err.Error())
 		errorResponse(c)
@@ -69,7 +73,11 @@ func (p *ProviderController) Versions(c *gin.Context) {
 		Name:      c.Param("name"),
 	}
 
-	provider, err := p.Backend.GetProviderVersions(c.Request.Context(), params)
+	userParams := registrytypes.UserParameters{
+		Organization: p.Config.Organization,
+	}
+
+	provider, err := p.Backend.GetProviderVersions(c.Request.Context(), params, userParams)
 	if err != nil {
 		log.Printf(err.Error())
 		errorResponse(c)

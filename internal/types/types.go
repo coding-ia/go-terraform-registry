@@ -33,3 +33,7 @@ type APIParameters struct {
 	Name         string
 	Version      string
 }
+
+type UserParameters struct {
+	Organization string
+}

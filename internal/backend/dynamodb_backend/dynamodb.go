@@ -29,7 +29,7 @@ func (d *DynamoDBBackend) ConfigureBackend(_ context.Context) {
 	d.ModuleTableName = "terraform_modules"
 }
 
-func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters) (*models.TerraformProviderPlatformResponse, error) {
+func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
 
 	params := &dynamodb.QueryInput{
@@ -102,7 +102,7 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters) (*models.TerraformAvailableProvider, error) {
+func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters, userParameters registrytypes.UserParameters) (*models.TerraformAvailableProvider, error) {
 	providerName := fmt.Sprintf("%s/%s", parameters.Namespace, parameters.Name)
 
 	params := &dynamodb.QueryInput{
