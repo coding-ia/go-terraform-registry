@@ -33,7 +33,7 @@ func StartServer(version string) {
 	s.ConfigureStorage(ctx)
 
 	_ = controller.NewServiceController(r)
-	_ = controller.NewProviderController(r, c, b)
+	_ = controller.NewProviderController(r, c, b, s)
 	_ = controller.NewModuleController(r, c, b)
 	_ = controller.NewAuthenticationController(r, c)
 	_ = controller.NewAPIController(r, c, b, s)

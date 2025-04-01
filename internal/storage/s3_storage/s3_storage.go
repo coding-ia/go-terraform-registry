@@ -51,5 +51,13 @@ func (s *S3Storage) GenerateUploadURL(ctx context.Context, path string) (string,
 }
 
 func (s *S3Storage) GenerateDownloadURL(ctx context.Context, path string) (string, error) {
-	return "", nil
+	req, _ := s.s3svc.GetObjectRequest(&s3.GetObjectInput{
+		Bucket: aws.String(s.S3BucketName),
+		Key:    aws.String(path),
+	})
+	url, err := req.Presign(60 * time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return url, nil
 }

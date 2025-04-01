@@ -44,6 +44,50 @@ func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
 }
 
 func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	filter := fmt.Sprintf("%s:%s:%s", b.ProviderVersionTableName, p.ID, parameters.Version)
+
+	var pv ProviderVersion
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionGet(db, filter, &pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	response := &models.TerraformProviderPlatformResponse{
+		Protocols: pv.Protocols,
+		SigningKeys: models.SigningKeys{
+			GPGPublicKeys: []models.GPGPublicKeys{
+				{
+					KeyId:      pv.GPGKeyID,
+					AsciiArmor: pv.GPGASCIIArmor,
+				},
+			},
+		},
+	}
+
+	for _, platform := range pv.Platform {
+		if strings.EqualFold(platform.OS, parameters.OS) &&
+			strings.EqualFold(platform.Arch, parameters.Architecture) {
+			response.Filename = platform.Filename
+			response.Shasum = platform.SHASum
+			response.OS = platform.OS
+			response.Arch = platform.Arch
+
+			return response, nil
+		}
+	}
+
 	return nil, nil
 }
 
