@@ -27,7 +27,10 @@ func StartServer(version string) {
 
 	c := config.GetRegistryConfig()
 	b := config.SelectBackend(ctx, c.Backend)
+
+	// Configure storage
 	s := s3_storage.NewS3Storage(c)
+	s.ConfigureStorage(ctx)
 
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, b)

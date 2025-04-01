@@ -163,7 +163,6 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 				Protocols: pv.Protocols,
 				KeyID:     pv.GPGKeyID,
 			},
-			Links: models.RegistryProviderLinks{},
 		},
 	}
 

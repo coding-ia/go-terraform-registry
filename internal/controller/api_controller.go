@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
@@ -103,6 +104,19 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	shaSum := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS", parameters.Name, req.Data.Attributes.Version)
+	shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", parameters.Name, req.Data.Attributes.Version)
+
+	key := fmt.Sprintf("%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	shaSumURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s%s", key, shaSum))
+	shaSumSigURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s%s", key, shaSumSig))
+
+	resp.Data.Links = models.RegistryProviderVersionsResponseLinks{
+		ShasumsUpload:    shaSumURL,
+		ShasumsSigUpload: shaSumSigURL,
 	}
 
 	c.JSON(http.StatusOK, resp)

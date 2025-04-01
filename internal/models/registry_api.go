@@ -156,12 +156,17 @@ type RegistryProviderVersionsResponseRelationships struct {
 	RegistryProviderPlatforms RegistryProviderPlatforms `json:"registry-provider-platforms"`
 }
 
+type RegistryProviderVersionsResponseLinks struct {
+	ShasumsUpload    string `json:"shasums-upload,omitempty"`
+	ShasumsSigUpload string `json:"shasums-sig-upload,omitempty"`
+}
+
 type RegistryProviderVersionsResponseData struct {
 	ID            string                                        `json:"id"`
 	Type          string                                        `json:"type"`
 	Attributes    RegistryProviderVersionsResponseAttributes    `json:"attributes"`
 	Relationships RegistryProviderVersionsResponseRelationships `json:"relationships"`
-	Links         RegistryProviderLinks                         `json:"links"`
+	Links         RegistryProviderVersionsResponseLinks         `json:"links"`
 }
 
 // RegistryProviderVersionPlatformsRequest - Request Model
