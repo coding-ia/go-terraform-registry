@@ -4,7 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/storage"
+	"net/http"
 )
 
 type APIController struct {
@@ -38,17 +40,49 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 }
 
 func (a *APIController) RegistryProviders(c *gin.Context) {
+	var req models.RegistryProvidersRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var response models.RegistryProvidersResponse
+	c.JSON(http.StatusOK, response)
 }
 
 func (a *APIController) GPGKeys(c *gin.Context) {
+	var req models.GPGKeyRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var response models.GPGKeyResponse
+	c.JSON(http.StatusOK, response)
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {
+	var req models.RegistryProviderVersionRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var response models.RegistryProviderVersionResponse
+	c.JSON(http.StatusOK, response)
 }
 
 func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
+	var req models.RegistryProviderVersionPlatformRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var response models.RegistryProviderVersionPlatformResponse
+	c.JSON(http.StatusOK, response)
 }
