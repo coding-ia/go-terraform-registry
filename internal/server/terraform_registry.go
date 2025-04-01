@@ -31,7 +31,6 @@ func StartServer(version string) {
 	_ = controller.NewProviderController(r, c, b)
 	_ = controller.NewModuleController(r, c, b)
 	_ = controller.NewAuthenticationController(r, c)
-	_ = controller.NewImportController(r, b)
 
 	lambdaFunction := os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 
