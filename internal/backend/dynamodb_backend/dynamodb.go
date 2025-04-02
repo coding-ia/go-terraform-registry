@@ -2,6 +2,7 @@ package dynamodb_backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -13,6 +14,7 @@ import (
 	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
+	"strings"
 )
 
 var _ backend.RegistryProviderBackend = &DynamoDBBackend{}
@@ -157,7 +159,50 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 }
 
 func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
-	return nil, nil
+	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	provider, err := getProvider(ctx, d.Tables.ProviderTableName, key)
+	if err != nil {
+		return nil, err
+	}
+
+	pv, err := getProviderVersion(ctx, d.Tables.ProviderVersionTableName, *provider, parameters.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	duplicate := duplicatePlatform(pv.Platform, request.Data.Attributes.OS, request.Data.Attributes.Arch)
+	if duplicate {
+		return nil, fmt.Errorf("duplicate platform exists matching OS and Architecture")
+	}
+
+	newUUID := uuid.New()
+	platform := ProviderPlatform{
+		ID:       newUUID.String(),
+		OS:       request.Data.Attributes.OS,
+		Arch:     request.Data.Attributes.Arch,
+		SHASum:   request.Data.Attributes.Shasum,
+		Filename: request.Data.Attributes.Filename,
+	}
+
+	err = appendPlatform(ctx, d.Tables.ProviderVersionTableName, provider.ID, parameters.Version, platform)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.RegistryProviderVersionPlatformsResponse{
+		Data: models.RegistryProviderVersionPlatformsResponseData{
+			ID:   platform.ID,
+			Type: "registry-provider-platforms",
+			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+				OS:       platform.OS,
+				Arch:     platform.Arch,
+				Shasum:   platform.SHASum,
+				Filename: platform.Filename,
+			},
+		},
+	}
+
+	return resp, nil
 }
 
 func extractString(m map[string]types.AttributeValue, key string) string {
@@ -281,6 +326,7 @@ func setProviderVersion(ctx context.Context, tableName string, provider Provider
 		"id":              &types.AttributeValueMemberS{Value: providerVersion.ID},
 		"gpg_key_id":      &types.AttributeValueMemberS{Value: providerVersion.GPGKeyID},
 		"gpg_ascii_armor": &types.AttributeValueMemberS{Value: providerVersion.GPGASCIIArmor},
+		"platforms":       &types.AttributeValueMemberL{Value: []types.AttributeValue{}},
 		"protocols":       &types.AttributeValueMemberSS{Value: providerVersion.Protocols},
 	}
 
@@ -321,10 +367,68 @@ func getProviderVersion(ctx context.Context, tableName string, provider Provider
 			Version:       resp.Items[0]["version"].(*types.AttributeValueMemberS).Value,
 			Protocols:     resp.Items[0]["protocols"].(*types.AttributeValueMemberSS).Value,
 			GPGKeyID:      resp.Items[0]["gpg_key_id"].(*types.AttributeValueMemberS).Value,
-			GPGASCIIArmor: resp.Items[0]["ascii_armor"].(*types.AttributeValueMemberS).Value,
+			GPGASCIIArmor: resp.Items[0]["gpg_ascii_armor"].(*types.AttributeValueMemberS).Value,
 		}
+
+		platformsList := resp.Items[0]["platforms"].(*types.AttributeValueMemberL)
+		for _, attr := range platformsList.Value {
+			strAttr := attr.(*types.AttributeValueMemberS)
+
+			var platform ProviderPlatform
+			err := json.Unmarshal([]byte(strAttr.Value), &platform)
+			if err != nil {
+				return nil, err
+			}
+
+			pv.Platform = append(pv.Platform, platform)
+		}
+
 		return &pv, nil
 	}
 
 	return nil, nil
+}
+
+func duplicatePlatform(platforms []ProviderPlatform, os string, arch string) bool {
+	for _, platform := range platforms {
+		if strings.EqualFold(platform.OS, os) && strings.EqualFold(platform.Arch, arch) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func appendPlatform(ctx context.Context, tableName, id string, version string, platform ProviderPlatform) error {
+	platformJSON, err := json.Marshal(platform)
+	if err != nil {
+		return fmt.Errorf("failed to marshal platform: %w", err)
+	}
+
+	params := &dynamodb.UpdateItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]types.AttributeValue{
+			"provider_id": &types.AttributeValueMemberS{Value: id},
+			"version":     &types.AttributeValueMemberS{Value: version},
+		},
+		UpdateExpression: aws.String("SET platforms = list_append(platforms, :platform)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":platform": &types.AttributeValueMemberL{
+				Value: []types.AttributeValue{
+					&types.AttributeValueMemberS{Value: string(platformJSON)},
+				},
+			},
+		},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = svc.UpdateItem(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
