@@ -1,16 +1,16 @@
 package badgerdb_backend
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/google/uuid"
 	"go-terraform-registry/internal/backend"
+	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
+	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
-	"golang.org/x/crypto/openpgp"
 	"log"
 	"os"
 	"strings"
@@ -19,23 +19,28 @@ import (
 var _ backend.RegistryProviderBackend = &BadgerDBBackend{}
 
 type BadgerDBBackend struct {
-	DBPath                   string
+	Config config.RegistryConfig
+	DBPath string
+	Tables BadgerTables
+}
+
+type BadgerTables struct {
 	GPGTableName             string
 	ProviderTableName        string
 	ProviderVersionTableName string
 	ModuleTableName          string
 }
 
-func NewBadgerDBBackend() backend.RegistryProviderBackend {
+func NewBadgerDBBackend(config config.RegistryConfig) backend.RegistryProviderBackend {
 	return &BadgerDBBackend{}
 }
 
 func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
 	b.DBPath = "registry_db"
-	b.GPGTableName = "gpg"
-	b.ProviderTableName = "providers"
-	b.ProviderVersionTableName = "provider-version"
-	b.ModuleTableName = "modules"
+	b.Tables.GPGTableName = "gpg"
+	b.Tables.ProviderTableName = "providers"
+	b.Tables.ProviderVersionTableName = "provider-version"
+	b.Tables.ModuleTableName = "modules"
 
 	val, ok := os.LookupEnv("BADGER_DB_PATH")
 	if ok {
@@ -44,7 +49,7 @@ func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
 }
 
 func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
-	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
 
 	var p Provider
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -54,7 +59,7 @@ func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registryty
 		return nil, err
 	}
 
-	filter := fmt.Sprintf("%s:%s:%s", b.ProviderVersionTableName, p.ID, parameters.Version)
+	filter := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, parameters.Version)
 
 	var pv ProviderVersion
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -92,7 +97,7 @@ func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registryty
 }
 
 func (b *BadgerDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters, userParameters registrytypes.UserParameters) (*models.TerraformAvailableProvider, error) {
-	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
 
 	var p Provider
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -102,7 +107,7 @@ func (b *BadgerDBBackend) GetProviderVersions(ctx context.Context, parameters re
 		return nil, err
 	}
 
-	filter := fmt.Sprintf("%s:%s", b.ProviderVersionTableName, p.ID)
+	filter := fmt.Sprintf("%s:%s", b.Tables.ProviderVersionTableName, p.ID)
 	prefix := []byte(filter + ":") // Prefix for filtering
 
 	var providerVersions []ProviderVersion
@@ -173,7 +178,7 @@ func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters regi
 		ID: newUUID.String(),
 	}
 
-	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		return providerSet(db, key, p)
 	})
@@ -200,11 +205,19 @@ func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters regi
 }
 
 func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
-	fingerprint := getKeyFingerprint(request.Data.Attributes.AsciiArmor)
+	newUUID := uuid.New()
+	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
 
-	key := fmt.Sprintf("%s:%s:%s", b.GPGTableName, request.Data.Attributes.Namespace, fingerprint[0])
+	gpg := GPGKey{
+		Namespace:  request.Data.Attributes.Namespace,
+		KeyID:      keyId[0],
+		ID:         newUUID.String(),
+		AsciiArmor: request.Data.Attributes.AsciiArmor,
+	}
+	
+	key := fmt.Sprintf("%s:%s:%s", b.Tables.GPGTableName, request.Data.Attributes.Namespace, keyId[0])
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
-		return gpgSet(db, key, request.Data.Attributes.AsciiArmor)
+		return gpgSet(db, key, gpg)
 	})
 	if err != nil {
 		return nil, err
@@ -212,10 +225,10 @@ func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 
 	resp := &models.GPGKeyResponse{
 		Data: models.GPGKeyResponseData{
-			ID: fingerprint[0],
+			ID: keyId[0],
 			Attributes: models.GPGKeyResponseAttributes{
 				AsciiArmor: request.Data.Attributes.AsciiArmor,
-				KeyID:      fingerprint[0],
+				KeyID:      keyId[0],
 				Namespace:  request.Data.Attributes.Namespace,
 			},
 		},
@@ -225,7 +238,7 @@ func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 }
 
 func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
-	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 
 	var p Provider
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -235,10 +248,10 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	var asciiArmor string
-	gpgKey := fmt.Sprintf("%s:%s:%s", b.GPGTableName, parameters.Namespace, request.Data.Attributes.KeyID)
+	var gpg GPGKey
+	gpgKey := fmt.Sprintf("%s:%s:%s", b.Tables.GPGTableName, parameters.Namespace, request.Data.Attributes.KeyID)
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
-		return gpgGet(db, gpgKey, &asciiArmor)
+		return gpgGet(db, gpgKey, &gpg)
 	})
 	if err != nil {
 		return nil, err
@@ -250,10 +263,10 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		Version:       request.Data.Attributes.Version,
 		Protocols:     request.Data.Attributes.Protocols,
 		GPGKeyID:      request.Data.Attributes.KeyID,
-		GPGASCIIArmor: asciiArmor,
+		GPGASCIIArmor: gpg.AsciiArmor,
 	}
 
-	pvKey := fmt.Sprintf("%s:%s:%s", b.ProviderVersionTableName, p.ID, pv.Version)
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, pv.Version)
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		return providerVersionSet(db, pvKey, pv)
 	})
@@ -277,7 +290,7 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 }
 
 func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
-	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 
 	var p Provider
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -287,7 +300,7 @@ func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		return nil, err
 	}
 
-	pvKey := fmt.Sprintf("%s:%s:%s", b.ProviderVersionTableName, p.ID, parameters.Version)
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, parameters.Version)
 	var pv ProviderVersion
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		return providerVersionGet(db, pvKey, &pv)
@@ -390,13 +403,17 @@ func providerVersionGet(db *badger.DB, key string, value *ProviderVersion) error
 	})
 }
 
-func gpgSet(db *badger.DB, key string, value string) error {
+func gpgSet(db *badger.DB, key string, value GPGKey) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
 	return db.Update(func(txn *badger.Txn) error {
-		return txn.Set([]byte(key), []byte(value))
+		return txn.Set([]byte(key), data)
 	})
 }
 
-func gpgGet(db *badger.DB, key string, value *string) error {
+func gpgGet(db *badger.DB, key string, value *GPGKey) error {
 	return db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
@@ -404,25 +421,7 @@ func gpgGet(db *badger.DB, key string, value *string) error {
 		}
 
 		return item.Value(func(v []byte) error {
-			*value = string(v)
-			return nil
+			return json.Unmarshal(v, &value)
 		})
 	})
-}
-
-func getKeyFingerprint(publicKey string) []string {
-	entityList, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var keys []string
-	for _, entity := range entityList {
-		fingerPrint := entity.PrimaryKey.Fingerprint
-		keyID := fingerPrint[len(fingerPrint)-8:]
-		value := fmt.Sprintf("%x", keyID)
-		keys = append(keys, strings.ToUpper(value))
-	}
-
-	return keys
 }

@@ -1,4 +1,4 @@
-package badgerdb_backend
+package dynamodb_backend
 
 type Provider struct {
 	ID string `json:"id"`
