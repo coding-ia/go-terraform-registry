@@ -277,7 +277,7 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 	*/
 
 	var pv ProviderVersion
-	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, pv.Version)
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, request.Data.Attributes.Version)
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		err := providerVersionGet(db, pvKey, &pv)
 		if err != nil {
@@ -334,6 +334,11 @@ func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	duplicate := duplicatePlatform(pv.Platform, request.Data.Attributes.OS, request.Data.Attributes.Arch)
+	if duplicate {
+		return nil, fmt.Errorf("duplicate platform exists matching OS and Architecture")
 	}
 
 	newUUID := uuid.New()
@@ -457,4 +462,14 @@ func gpgGet(db *badger.DB, key string, value *GPGKey) error {
 			return json.Unmarshal(v, &value)
 		})
 	})
+}
+
+func duplicatePlatform(platforms []ProviderPlatform, os string, arch string) bool {
+	for _, platform := range platforms {
+		if strings.EqualFold(platform.OS, os) && strings.EqualFold(platform.Arch, arch) {
+			return true
+		}
+	}
+
+	return false
 }
