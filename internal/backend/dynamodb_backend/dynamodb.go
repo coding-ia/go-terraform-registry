@@ -278,9 +278,10 @@ func setProviderVersion(ctx context.Context, tableName string, provider Provider
 	item := map[string]types.AttributeValue{
 		"provider_id":     &types.AttributeValueMemberS{Value: provider.ID},
 		"version":         &types.AttributeValueMemberS{Value: providerVersion.Version},
-		"protocols":       &types.AttributeValueMemberSS{Value: providerVersion.Protocols},
+		"id":              &types.AttributeValueMemberS{Value: providerVersion.ID},
 		"gpg_key_id":      &types.AttributeValueMemberS{Value: providerVersion.GPGKeyID},
 		"gpg_ascii_armor": &types.AttributeValueMemberS{Value: providerVersion.GPGASCIIArmor},
+		"protocols":       &types.AttributeValueMemberSS{Value: providerVersion.Protocols},
 	}
 
 	svc, err := createDynamoDBClient(ctx)
@@ -293,4 +294,37 @@ func setProviderVersion(ctx context.Context, tableName string, provider Provider
 	})
 
 	return nil
+}
+
+func getProviderVersion(ctx context.Context, tableName string, provider Provider, version string) (*ProviderVersion, error) {
+	params := &dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		KeyConditionExpression: aws.String("provider_id = :p and version = :v"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":p": &types.AttributeValueMemberS{Value: provider.ID},
+			":v": &types.AttributeValueMemberS{Value: version},
+		},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := svc.Query(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items, %v", err)
+	}
+
+	if resp.Count == 1 {
+		pv := ProviderVersion{
+			ID:            resp.Items[0]["id"].(*types.AttributeValueMemberS).Value,
+			Version:       resp.Items[0]["version"].(*types.AttributeValueMemberS).Value,
+			Protocols:     resp.Items[0]["protocols"].(*types.AttributeValueMemberSS).Value,
+			GPGKeyID:      resp.Items[0]["gpg_key_id"].(*types.AttributeValueMemberS).Value,
+			GPGASCIIArmor: resp.Items[0]["ascii_armor"].(*types.AttributeValueMemberS).Value,
+		}
+		return &pv, nil
+	}
+
+	return nil, nil
 }
