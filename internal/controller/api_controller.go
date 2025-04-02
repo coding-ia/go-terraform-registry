@@ -54,6 +54,11 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 		Organization: organization,
 	}
 
+	if organization != a.Config.Organization {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
+		return
+	}
+
 	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -95,6 +100,11 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 
 	if registry != "private" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		return
+	}
+
+	if organization != a.Config.Organization {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
 		return
 	}
 
@@ -143,6 +153,11 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 
 	if registry != "private" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		return
+	}
+
+	if organization != a.Config.Organization {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
 		return
 	}
 
