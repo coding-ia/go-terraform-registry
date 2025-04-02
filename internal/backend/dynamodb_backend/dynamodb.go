@@ -201,19 +201,23 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 }
 
 func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
-	newUUID := uuid.New()
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
-	p := Provider{
-		ID: newUUID.String(),
-	}
-	err := setProvider(ctx, d.client, d.Tables.ProviderTableName, key, p)
-	if err != nil {
-		return nil, err
+
+	p, _ := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
+	if p == nil {
+		newUUID := uuid.New()
+		p = &Provider{
+			ID: newUUID.String(),
+		}
+		err := setProvider(ctx, d.client, d.Tables.ProviderTableName, key, *p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	resp := &models.RegistryProvidersResponse{
 		Data: models.RegistryProvidersResponseData{
-			ID:   newUUID.String(),
+			ID:   p.ID,
 			Type: "registry-providers",
 			Attributes: models.RegistryProvidersResponseAttributes{
 				Name:         request.Data.Attributes.Name,
@@ -355,8 +359,9 @@ func setProvider(ctx context.Context, client *dynamodb.Client, tableName string,
 	}
 
 	_, err := client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
-		Item:      item,
+		TableName:           aws.String(tableName),
+		Item:                item,
+		ConditionExpression: aws.String("attribute_not_exists(provider)"),
 	})
 
 	return err
@@ -443,8 +448,9 @@ func setProviderVersion(ctx context.Context, client *dynamodb.Client, tableName 
 	}
 
 	_, err := client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
-		Item:      item,
+		TableName:           aws.String(tableName),
+		Item:                item,
+		ConditionExpression: aws.String("attribute_not_exists(provider) and attribute_not_exists(version)"),
 	})
 
 	return err
