@@ -269,6 +269,9 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 	if err != nil {
 		return nil, err
 	}
+	if gpg == nil {
+		return nil, fmt.Errorf("no GPG key found for %s", request.Data.Attributes.KeyID)
+	}
 
 	newUUID := uuid.New()
 	pv := ProviderVersion{
@@ -324,7 +327,7 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		Filename: request.Data.Attributes.Filename,
 	}
 
-	err = appendPlatform(ctx, d.client, d.Tables.ProviderVersionTableName, provider.ID, parameters.Version, platform)
+	err = appendPlatform(ctx, d.client, d.Tables.ProviderVersionTableName, provider.Provider, parameters.Version, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +378,8 @@ func getProvider(ctx context.Context, client *dynamodb.Client, tableName string,
 
 	if resp.Count == 1 {
 		p := &Provider{
-			ID: resp.Items[0]["id"].(*types.AttributeValueMemberS).Value,
+			Provider: resp.Items[0]["provider"].(*types.AttributeValueMemberS).Value,
+			ID:       resp.Items[0]["id"].(*types.AttributeValueMemberS).Value,
 		}
 		return p, nil
 	}
@@ -429,7 +433,7 @@ func getGPG(ctx context.Context, client *dynamodb.Client, tableName string, name
 
 func setProviderVersion(ctx context.Context, client *dynamodb.Client, tableName string, provider Provider, providerVersion ProviderVersion) error {
 	item := map[string]types.AttributeValue{
-		"provider_id":     &types.AttributeValueMemberS{Value: provider.ID},
+		"provider":        &types.AttributeValueMemberS{Value: provider.Provider},
 		"version":         &types.AttributeValueMemberS{Value: providerVersion.Version},
 		"id":              &types.AttributeValueMemberS{Value: providerVersion.ID},
 		"gpg_key_id":      &types.AttributeValueMemberS{Value: providerVersion.GPGKeyID},
@@ -449,9 +453,9 @@ func setProviderVersion(ctx context.Context, client *dynamodb.Client, tableName 
 func getProviderVersion(ctx context.Context, client *dynamodb.Client, tableName string, provider Provider, version string) (*ProviderVersion, error) {
 	params := &dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
-		KeyConditionExpression: aws.String("provider_id = :p and version = :v"),
+		KeyConditionExpression: aws.String("provider = :p and version = :v"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":p": &types.AttributeValueMemberS{Value: provider.ID},
+			":p": &types.AttributeValueMemberS{Value: provider.Provider},
 			":v": &types.AttributeValueMemberS{Value: version},
 		},
 	}
@@ -499,7 +503,7 @@ func duplicatePlatform(platforms []ProviderPlatform, os string, arch string) boo
 	return false
 }
 
-func appendPlatform(ctx context.Context, client *dynamodb.Client, tableName, id string, version string, platform ProviderPlatform) error {
+func appendPlatform(ctx context.Context, client *dynamodb.Client, tableName, provider string, version string, platform ProviderPlatform) error {
 	platformJSON, err := json.Marshal(platform)
 	if err != nil {
 		return fmt.Errorf("failed to marshal platform: %w", err)
@@ -508,8 +512,8 @@ func appendPlatform(ctx context.Context, client *dynamodb.Client, tableName, id 
 	params := &dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]types.AttributeValue{
-			"provider_id": &types.AttributeValueMemberS{Value: id},
-			"version":     &types.AttributeValueMemberS{Value: version},
+			"provider": &types.AttributeValueMemberS{Value: provider},
+			"version":  &types.AttributeValueMemberS{Value: version},
 		},
 		UpdateExpression: aws.String("SET platforms = list_append(platforms, :platform)"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{

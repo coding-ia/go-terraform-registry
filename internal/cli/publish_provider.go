@@ -59,6 +59,7 @@ func init() {
 func publishProvider(ctx context.Context) {
 	providerRequest := models.RegistryProvidersRequest{
 		Data: models.RegistryProvidersRequestData{
+			Type: "registry-providers",
 			Attributes: models.RegistryProvidersRequestAttributes{
 				Name:         publishOptions.Name,
 				Namespace:    publishOptions.Namespace,

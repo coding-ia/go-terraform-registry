@@ -1,7 +1,8 @@
 package dynamodb_backend
 
 type Provider struct {
-	ID string `json:"id"`
+	Provider string `json:"provider"`
+	ID       string `json:"id"`
 }
 
 type GPGKey struct {
