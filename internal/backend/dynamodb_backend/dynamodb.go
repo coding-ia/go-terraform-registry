@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
@@ -48,6 +50,12 @@ func (d *DynamoDBBackend) ConfigureBackend(ctx context.Context) error {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to load SDK config, %v", err)
+	}
+
+	if d.Config.AssumeRoleARN != "" {
+		stsClient := sts.NewFromConfig(cfg)
+		credentials := stscreds.NewAssumeRoleProvider(stsClient, d.Config.AssumeRoleARN)
+		cfg.Credentials = aws.NewCredentialsCache(credentials)
 	}
 
 	d.client = dynamodb.NewFromConfig(cfg)

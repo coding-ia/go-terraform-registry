@@ -7,6 +7,7 @@ import (
 
 type RegistryConfig struct {
 	AllowAnonymousAccess   bool
+	AssumeRoleARN          string
 	Backend                string
 	OauthAuthURL           string
 	OauthClientID          string
@@ -22,6 +23,7 @@ type RegistryConfig struct {
 func GetRegistryConfig() RegistryConfig {
 	config := RegistryConfig{
 		AllowAnonymousAccess:   getBoolEnv("ALLOW_ANONYMOUS_ACCESS", true),
+		AssumeRoleARN:          os.Getenv("ASSUME_ROLE_ARN"),
 		Backend:                os.Getenv("BACKEND"),
 		OauthAuthURL:           os.Getenv("OAUTH_CLIENT_AUTH_URL"),
 		OauthClientID:          os.Getenv("OAUTH_CLIENT_ID"),
