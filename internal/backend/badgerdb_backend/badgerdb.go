@@ -35,7 +35,7 @@ func NewBadgerDBBackend(config config.RegistryConfig) backend.RegistryProviderBa
 	return &BadgerDBBackend{}
 }
 
-func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
+func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) error {
 	b.DBPath = "registry_db"
 	b.Tables.GPGTableName = "gpg"
 	b.Tables.ProviderTableName = "providers"
@@ -46,6 +46,8 @@ func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
 	if ok {
 		b.DBPath = val
 	}
+
+	return nil
 }
 
 func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
@@ -214,7 +216,7 @@ func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 		ID:         newUUID.String(),
 		AsciiArmor: request.Data.Attributes.AsciiArmor,
 	}
-	
+
 	key := fmt.Sprintf("%s:%s:%s", b.Tables.GPGTableName, request.Data.Attributes.Namespace, keyId[0])
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		return gpgSet(db, key, gpg)

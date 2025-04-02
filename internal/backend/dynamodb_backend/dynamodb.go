@@ -14,7 +14,6 @@ import (
 	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
-	"log"
 	"strings"
 )
 
@@ -40,17 +39,20 @@ func NewDynamoDBBackend(config config.RegistryConfig) backend.RegistryProviderBa
 	}
 }
 
-func (d *DynamoDBBackend) ConfigureBackend(ctx context.Context) {
+func (d *DynamoDBBackend) ConfigureBackend(ctx context.Context) error {
 	d.Tables.GPGTableName = "terraform_gpg_keys"
 	d.Tables.ProviderTableName = "terraform_providers"
 	d.Tables.ProviderVersionTableName = "terraform_providers_versions"
 	d.Tables.ModuleTableName = "terraform_modules"
 
-	client, err := createDynamoDBClient(ctx)
+	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("unable to load SDK config, %v", err)
 	}
-	d.client = client
+
+	d.client = dynamodb.NewFromConfig(cfg)
+
+	return nil
 }
 
 func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
@@ -75,11 +77,7 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
+	resp, err := d.client.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
@@ -143,11 +141,7 @@ func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters re
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
+	resp, err := d.client.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
@@ -341,15 +335,6 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 	}
 
 	return resp, nil
-}
-
-func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load SDK config, %v", err)
-	}
-
-	return dynamodb.NewFromConfig(cfg), nil
 }
 
 func setProvider(ctx context.Context, client *dynamodb.Client, tableName string, key string, provider Provider) error {
