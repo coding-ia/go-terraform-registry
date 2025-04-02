@@ -14,6 +14,7 @@ import (
 	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
+	"log"
 	"strings"
 )
 
@@ -22,6 +23,8 @@ var _ backend.RegistryProviderBackend = &DynamoDBBackend{}
 type DynamoDBBackend struct {
 	Config config.RegistryConfig
 	Tables DynamoTables
+
+	client *dynamodb.Client
 }
 
 type DynamoTables struct {
@@ -42,11 +45,17 @@ func (d *DynamoDBBackend) ConfigureBackend(ctx context.Context) {
 	d.Tables.ProviderTableName = "terraform_providers"
 	d.Tables.ProviderVersionTableName = "terraform_providers_versions"
 	d.Tables.ModuleTableName = "terraform_modules"
+
+	client, err := createDynamoDBClient(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	d.client = client
 }
 
 func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", userParameters.Organization, "private", parameters.Namespace, parameters.Name)
-	provider, err := getProvider(ctx, d.Tables.ProviderTableName, key)
+	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +127,7 @@ func (d *DynamoDBBackend) GetProvider(ctx context.Context, parameters registryty
 
 func (d *DynamoDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters, userParameters registrytypes.UserParameters) (*models.TerraformAvailableProvider, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", userParameters.Organization, "private", parameters.Namespace, parameters.Name)
-	provider, err := getProvider(ctx, d.Tables.ProviderTableName, key)
+	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +204,7 @@ func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters regi
 	p := Provider{
 		ID: newUUID.String(),
 	}
-	err := setProvider(ctx, d.Tables.ProviderTableName, key, p)
+	err := setProvider(ctx, d.client, d.Tables.ProviderTableName, key, p)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +237,7 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 		ID:         newUUID.String(),
 		AsciiArmor: request.Data.Attributes.AsciiArmor,
 	}
-	err := setGPG(ctx, d.Tables.GPGTableName, gpg)
+	err := setGPG(ctx, d.client, d.Tables.GPGTableName, gpg)
 	if err != nil {
 		return nil, err
 	}
@@ -249,12 +258,12 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 
 func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
-	provider, err := getProvider(ctx, d.Tables.ProviderTableName, key)
+	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
 		return nil, err
 	}
 
-	gpg, err := getGPG(ctx, d.Tables.GPGTableName, parameters.Namespace, request.Data.Attributes.KeyID)
+	gpg, err := getGPG(ctx, d.client, d.Tables.GPGTableName, parameters.Namespace, request.Data.Attributes.KeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +276,7 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		GPGKeyID:      gpg.KeyID,
 		GPGASCIIArmor: gpg.AsciiArmor,
 	}
-	err = setProviderVersion(ctx, d.Tables.ProviderVersionTableName, *provider, pv)
+	err = setProviderVersion(ctx, d.client, d.Tables.ProviderVersionTableName, *provider, pv)
 	if err != nil {
 		return nil, err
 	}
@@ -289,12 +298,12 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 
 func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
-	provider, err := getProvider(ctx, d.Tables.ProviderTableName, key)
+	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
 		return nil, err
 	}
 
-	pv, err := getProviderVersion(ctx, d.Tables.ProviderVersionTableName, *provider, parameters.Version)
+	pv, err := getProviderVersion(ctx, d.client, d.Tables.ProviderVersionTableName, *provider, parameters.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +322,7 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		Filename: request.Data.Attributes.Filename,
 	}
 
-	err = appendPlatform(ctx, d.Tables.ProviderVersionTableName, provider.ID, parameters.Version, platform)
+	err = appendPlatform(ctx, d.client, d.Tables.ProviderVersionTableName, provider.ID, parameters.Version, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -334,13 +343,6 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 	return resp, nil
 }
 
-func extractString(m map[string]types.AttributeValue, key string) string {
-	if v, ok := m[key].(*types.AttributeValueMemberS); ok {
-		return v.Value
-	}
-	return ""
-}
-
 func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -350,25 +352,21 @@ func createDynamoDBClient(ctx context.Context) (*dynamodb.Client, error) {
 	return dynamodb.NewFromConfig(cfg), nil
 }
 
-func setProvider(ctx context.Context, tableName string, key string, provider Provider) error {
+func setProvider(ctx context.Context, client *dynamodb.Client, tableName string, key string, provider Provider) error {
 	item := map[string]types.AttributeValue{
 		"provider": &types.AttributeValueMemberS{Value: key},
 		"id":       &types.AttributeValueMemberS{Value: provider.ID},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err := client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      item,
 	})
 
-	return nil
+	return err
 }
 
-func getProvider(ctx context.Context, tableName string, key string) (*Provider, error) {
+func getProvider(ctx context.Context, client *dynamodb.Client, tableName string, key string) (*Provider, error) {
 	params := &dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		KeyConditionExpression: aws.String("provider = :p"),
@@ -377,11 +375,7 @@ func getProvider(ctx context.Context, tableName string, key string) (*Provider, 
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
+	resp, err := client.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
@@ -396,7 +390,7 @@ func getProvider(ctx context.Context, tableName string, key string) (*Provider, 
 	return nil, nil
 }
 
-func setGPG(ctx context.Context, tableName string, gpg GPGKey) error {
+func setGPG(ctx context.Context, client *dynamodb.Client, tableName string, gpg GPGKey) error {
 	item := map[string]types.AttributeValue{
 		"namespace":   &types.AttributeValueMemberS{Value: gpg.Namespace},
 		"key_id":      &types.AttributeValueMemberS{Value: gpg.KeyID},
@@ -404,19 +398,15 @@ func setGPG(ctx context.Context, tableName string, gpg GPGKey) error {
 		"ascii_armor": &types.AttributeValueMemberS{Value: gpg.AsciiArmor},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err := client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      item,
 	})
 
-	return nil
+	return err
 }
 
-func getGPG(ctx context.Context, tableName string, namespace string, keyId string) (*GPGKey, error) {
+func getGPG(ctx context.Context, client *dynamodb.Client, tableName string, namespace string, keyId string) (*GPGKey, error) {
 	params := &dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		KeyConditionExpression: aws.String("namespace = :n and key_id = :k"),
@@ -426,11 +416,7 @@ func getGPG(ctx context.Context, tableName string, namespace string, keyId strin
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
+	resp, err := client.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
@@ -448,7 +434,7 @@ func getGPG(ctx context.Context, tableName string, namespace string, keyId strin
 	return nil, nil
 }
 
-func setProviderVersion(ctx context.Context, tableName string, provider Provider, providerVersion ProviderVersion) error {
+func setProviderVersion(ctx context.Context, client *dynamodb.Client, tableName string, provider Provider, providerVersion ProviderVersion) error {
 	item := map[string]types.AttributeValue{
 		"provider_id":     &types.AttributeValueMemberS{Value: provider.ID},
 		"version":         &types.AttributeValueMemberS{Value: providerVersion.Version},
@@ -459,19 +445,15 @@ func setProviderVersion(ctx context.Context, tableName string, provider Provider
 		"protocols":       &types.AttributeValueMemberSS{Value: providerVersion.Protocols},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err := client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      item,
 	})
 
-	return nil
+	return err
 }
 
-func getProviderVersion(ctx context.Context, tableName string, provider Provider, version string) (*ProviderVersion, error) {
+func getProviderVersion(ctx context.Context, client *dynamodb.Client, tableName string, provider Provider, version string) (*ProviderVersion, error) {
 	params := &dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		KeyConditionExpression: aws.String("provider_id = :p and version = :v"),
@@ -481,11 +463,7 @@ func getProviderVersion(ctx context.Context, tableName string, provider Provider
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := svc.Query(ctx, params)
+	resp, err := client.Query(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query items, %v", err)
 	}
@@ -528,7 +506,7 @@ func duplicatePlatform(platforms []ProviderPlatform, os string, arch string) boo
 	return false
 }
 
-func appendPlatform(ctx context.Context, tableName, id string, version string, platform ProviderPlatform) error {
+func appendPlatform(ctx context.Context, client *dynamodb.Client, tableName, id string, version string, platform ProviderPlatform) error {
 	platformJSON, err := json.Marshal(platform)
 	if err != nil {
 		return fmt.Errorf("failed to marshal platform: %w", err)
@@ -550,14 +528,7 @@ func appendPlatform(ctx context.Context, tableName, id string, version string, p
 		},
 	}
 
-	svc, err := createDynamoDBClient(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = svc.UpdateItem(ctx, params)
-	if err != nil {
-		return err
-	}
+	_, err = client.UpdateItem(ctx, params)
 
-	return nil
+	return err
 }
