@@ -3,6 +3,7 @@ package badgerdb_backend
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/google/uuid"
@@ -174,14 +175,19 @@ func (b *BadgerDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 }
 
 func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
-	newUUID := uuid.New()
-
-	p := Provider{
-		ID: newUUID.String(),
-	}
-
+	var p Provider
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		err := providerGet(db, key, &p)
+		if err != nil {
+			return err
+		}
+
+		if p.ID == "" {
+			newUUID := uuid.New()
+			p.ID = newUUID.String()
+		}
+
 		return providerSet(db, key, p)
 	})
 	if err != nil {
@@ -259,17 +265,25 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	newUUID := uuid.New()
-	pv := ProviderVersion{
-		ID:            newUUID.String(),
-		Version:       request.Data.Attributes.Version,
-		Protocols:     request.Data.Attributes.Protocols,
-		GPGKeyID:      request.Data.Attributes.KeyID,
-		GPGASCIIArmor: gpg.AsciiArmor,
-	}
-
-	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, pv.Version)
+	var pv ProviderVersion
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, request.Data.Attributes.Version)
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		err := providerVersionGet(db, pvKey, &pv)
+		if err != nil {
+			return err
+		}
+
+		if pv.ID == "" {
+			newUUID := uuid.New()
+			pv = ProviderVersion{
+				ID:            newUUID.String(),
+				Version:       request.Data.Attributes.Version,
+				Protocols:     request.Data.Attributes.Protocols,
+				GPGKeyID:      request.Data.Attributes.KeyID,
+				GPGASCIIArmor: gpg.AsciiArmor,
+			}
+		}
+
 		return providerVersionSet(db, pvKey, pv)
 	})
 	if err != nil {
@@ -309,6 +323,11 @@ func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	duplicate := duplicatePlatform(pv.Platform, request.Data.Attributes.OS, request.Data.Attributes.Arch)
+	if duplicate {
+		return nil, fmt.Errorf("duplicate platform exists matching OS and Architecture")
 	}
 
 	newUUID := uuid.New()
@@ -373,6 +392,9 @@ func providerGet(db *badger.DB, key string, value *Provider) error {
 	return db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				return nil
+			}
 			return err
 		}
 
@@ -396,6 +418,9 @@ func providerVersionGet(db *badger.DB, key string, value *ProviderVersion) error
 	return db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				return nil
+			}
 			return err
 		}
 
@@ -426,4 +451,14 @@ func gpgGet(db *badger.DB, key string, value *GPGKey) error {
 			return json.Unmarshal(v, &value)
 		})
 	})
+}
+
+func duplicatePlatform(platforms []ProviderPlatform, os string, arch string) bool {
+	for _, platform := range platforms {
+		if strings.EqualFold(platform.OS, os) && strings.EqualFold(platform.Arch, arch) {
+			return true
+		}
+	}
+
+	return false
 }

@@ -9,6 +9,7 @@ import (
 	"go-terraform-registry/internal/storage"
 	registrytypes "go-terraform-registry/internal/types"
 	"net/http"
+	"strings"
 )
 
 type APIController struct {
@@ -50,13 +51,14 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 	}
 
 	organization := c.Param("organization")
-	parameters := registrytypes.APIParameters{
-		Organization: organization,
+
+	if !strings.EqualFold(organization, req.Data.Attributes.Namespace) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
+		return
 	}
 
-	if organization != a.Config.Organization {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
-		return
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
 	}
 
 	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
@@ -103,8 +105,8 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 		return
 	}
 
-	if organization != a.Config.Organization {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
+	if !strings.EqualFold(organization, namespace) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
 		return
 	}
 
@@ -156,8 +158,8 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 		return
 	}
 
-	if organization != a.Config.Organization {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "organization does not match"})
+	if !strings.EqualFold(organization, namespace) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
 		return
 	}
 
