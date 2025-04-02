@@ -7,7 +7,10 @@ import (
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
 	"go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/config/selector"
 	"go-terraform-registry/internal/controller"
+	"go-terraform-registry/internal/storage/s3_storage"
+	"log"
 	"os"
 )
 
@@ -24,14 +27,23 @@ func StartServer(version string) {
 
 	r := gin.Default()
 
+	// Get configuration and select backend
 	c := config.GetRegistryConfig()
-	b := config.SelectBackend(ctx, c.Backend)
+	b := selector.SelectBackend(ctx, c)
 
+	// Configure storage
+	s := s3_storage.NewS3Storage(c)
+	err := s.ConfigureStorage(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Configure controllers
 	_ = controller.NewServiceController(r)
-	_ = controller.NewProviderController(r, c, b)
+	_ = controller.NewProviderController(r, c, b, s)
 	_ = controller.NewModuleController(r, c, b)
 	_ = controller.NewAuthenticationController(r, c)
-	_ = controller.NewImportController(r, b)
+	_ = controller.NewAPIController(r, c, b, s)
 
 	lambdaFunction := os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 

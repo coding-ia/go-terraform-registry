@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
+	"github.com/google/uuid"
 	"go-terraform-registry/internal/backend"
+	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
+	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
 	"log"
 	"os"
@@ -16,78 +19,77 @@ import (
 var _ backend.RegistryProviderBackend = &BadgerDBBackend{}
 
 type BadgerDBBackend struct {
-	DBPath            string
-	ProviderTableName string
-	ModuleTableName   string
+	Config config.RegistryConfig
+	DBPath string
+	Tables BadgerTables
 }
 
-func NewBadgerDBBackend() backend.RegistryProviderBackend {
+type BadgerTables struct {
+	GPGTableName             string
+	ProviderTableName        string
+	ProviderVersionTableName string
+	ModuleTableName          string
+}
+
+func NewBadgerDBBackend(config config.RegistryConfig) backend.RegistryProviderBackend {
 	return &BadgerDBBackend{}
 }
 
-func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) {
+func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) error {
 	b.DBPath = "registry_db"
-	b.ProviderTableName = "providers"
-	b.ModuleTableName = "modules"
+	b.Tables.GPGTableName = "gpg"
+	b.Tables.ProviderTableName = "providers"
+	b.Tables.ProviderVersionTableName = "provider-version"
+	b.Tables.ModuleTableName = "modules"
 
 	val, ok := os.LookupEnv("BADGER_DB_PATH")
 	if ok {
 		b.DBPath = val
 	}
+
+	return nil
 }
 
-func (b *BadgerDBBackend) GetProvider(_ context.Context, parameters registrytypes.ProviderPackageParameters) (*models.TerraformProviderPlatformResponse, error) {
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
+func (b *BadgerDBBackend) GetProvider(ctx context.Context, parameters registrytypes.ProviderPackageParameters, userParameters registrytypes.UserParameters) (*models.TerraformProviderPlatformResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(db)
 
-	key := fmt.Sprintf("%s:%s/%s:%s", b.ProviderTableName, parameters.Namespace, parameters.Name, parameters.Version)
+	filter := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, parameters.Version)
 
-	var providerVersion ProviderVersion
-	err = db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
-		if err != nil {
-			return err
-		}
-
-		return item.Value(func(v []byte) error {
-			return json.Unmarshal(v, &providerVersion)
-		})
+	var pv ProviderVersion
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionGet(db, filter, &pv)
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	response := &models.TerraformProviderPlatformResponse{
-		Protocols:           providerVersion.Protocols,
-		ShasumsUrl:          providerVersion.SHASUMUrl,
-		ShasumsSignatureUrl: providerVersion.SHASUMSigUrl,
+		Protocols: pv.Protocols,
 		SigningKeys: models.SigningKeys{
 			GPGPublicKeys: []models.GPGPublicKeys{
 				{
-					KeyId:      providerVersion.GPGFingerprint,
-					AsciiArmor: providerVersion.GPGASCIIArmor,
+					KeyId:      pv.GPGKeyID,
+					AsciiArmor: pv.GPGASCIIArmor,
 				},
 			},
 		},
 	}
 
-	for _, p := range providerVersion.Provider {
-		if strings.EqualFold(p.OS, parameters.OS) &&
-			strings.EqualFold(p.Architecture, parameters.Architecture) {
-			response.Filename = p.Filename
-			response.DownloadUrl = p.DownloadURL
-			response.Shasum = p.ShaSUM
-			response.OS = p.OS
-			response.Arch = p.Architecture
+	for _, platform := range pv.Platform {
+		if strings.EqualFold(platform.OS, parameters.OS) &&
+			strings.EqualFold(platform.Arch, parameters.Architecture) {
+			response.Filename = platform.Filename
+			response.Shasum = platform.SHASum
+			response.OS = platform.OS
+			response.Arch = platform.Arch
 
 			return response, nil
 		}
@@ -96,45 +98,48 @@ func (b *BadgerDBBackend) GetProvider(_ context.Context, parameters registrytype
 	return nil, nil
 }
 
-func (b *BadgerDBBackend) GetProviderVersions(_ context.Context, parameters registrytypes.ProviderVersionParameters) (*models.TerraformAvailableProvider, error) {
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
+func (b *BadgerDBBackend) GetProviderVersions(ctx context.Context, parameters registrytypes.ProviderVersionParameters, userParameters registrytypes.UserParameters) (*models.TerraformAvailableProvider, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, userParameters.Organization, "private", parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(db)
 
-	providerName := fmt.Sprintf("%s:%s/%s", b.ProviderTableName, parameters.Namespace, parameters.Name)
-	prefix := []byte(providerName + ":") // Prefix for filtering
+	filter := fmt.Sprintf("%s:%s", b.Tables.ProviderVersionTableName, p.ID)
+	prefix := []byte(filter + ":") // Prefix for filtering
 
 	var providerVersions []ProviderVersion
-	err = db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = 10
-		it := txn.NewIterator(opts)
-		defer it.Close()
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return db.View(func(txn *badger.Txn) error {
+			opts := badger.DefaultIteratorOptions
+			opts.PrefetchSize = 10
+			it := txn.NewIterator(opts)
+			defer it.Close()
 
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			err := item.Value(func(v []byte) error {
-				var provider ProviderVersion
-				if err := json.Unmarshal(v, &provider); err != nil {
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				item := it.Item()
+				err := item.Value(func(v []byte) error {
+					var provider ProviderVersion
+					if err := json.Unmarshal(v, &provider); err != nil {
+						return err
+					}
+					providerVersions = append(providerVersions, provider)
+					return nil
+				})
+				if err != nil {
 					return err
 				}
-				providerVersions = append(providerVersions, provider)
-				return nil
-			})
-			if err != nil {
-				return err
 			}
-		}
-		return nil
+			return nil
+		})
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var versions []models.TerraformAvailableVersion
 	for _, pv := range providerVersions {
@@ -143,10 +148,10 @@ func (b *BadgerDBBackend) GetProviderVersions(_ context.Context, parameters regi
 			Protocols: pv.Protocols,
 		}
 
-		for _, p := range pv.Provider {
+		for _, p := range pv.Platform {
 			platform := models.TerraformAvailablePlatform{
 				OS:   p.OS,
-				Arch: p.Architecture,
+				Arch: p.Arch,
 			}
 			v.Platforms = append(v.Platforms, platform)
 		}
@@ -160,170 +165,224 @@ func (b *BadgerDBBackend) GetProviderVersions(_ context.Context, parameters regi
 	return provider, nil
 }
 
-func (b *BadgerDBBackend) GetModuleVersions(_ context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
+func (b *BadgerDBBackend) GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
+	return nil, nil
+}
+
+func (b *BadgerDBBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
+	return nil, nil
+}
+
+func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+	newUUID := uuid.New()
+
+	p := Provider{
+		ID: newUUID.String(),
+	}
+
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerSet(db, key, p)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(db)
 
-	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
-	prefix := []byte(fmt.Sprintf("%s:%s:", b.ModuleTableName, moduleName)) // Prefix for filtering
-
-	var versions []models.TerraformAvailableModuleVersion
-	err = db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = 10
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			err := item.Value(func(v []byte) error {
-				var module ModuleVersion
-				if err := json.Unmarshal(v, &module); err != nil {
-					return err
-				}
-				versions = append(versions, models.TerraformAvailableModuleVersion{
-					Version: module.Version,
-				})
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	modules := &models.TerraformAvailableModule{
-		Modules: []models.TerraformAvailableModuleVersions{
-			{
-				Versions: versions,
+	resp := &models.RegistryProvidersResponse{
+		Data: models.RegistryProvidersResponseData{
+			ID:   p.ID,
+			Type: "registry-providers",
+			Attributes: models.RegistryProvidersResponseAttributes{
+				Name:         request.Data.Attributes.Name,
+				Namespace:    request.Data.Attributes.Namespace,
+				RegistryName: request.Data.Attributes.RegistryName,
+				Permissions: models.RegistryProvidersResponsePermissions{
+					CanDelete: true,
+				},
 			},
 		},
 	}
 
-	return modules, nil
+	return resp, nil
 }
 
-func (b *BadgerDBBackend) GetModuleDownload(_ context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
+func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+	newUUID := uuid.New()
+	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
+
+	gpg := GPGKey{
+		Namespace:  request.Data.Attributes.Namespace,
+		KeyID:      keyId[0],
+		ID:         newUUID.String(),
+		AsciiArmor: request.Data.Attributes.AsciiArmor,
+	}
+
+	key := fmt.Sprintf("%s:%s:%s", b.Tables.GPGTableName, request.Data.Attributes.Namespace, keyId[0])
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return gpgSet(db, key, gpg)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
+
+	resp := &models.GPGKeyResponse{
+		Data: models.GPGKeyResponseData{
+			ID: keyId[0],
+			Attributes: models.GPGKeyResponseAttributes{
+				AsciiArmor: request.Data.Attributes.AsciiArmor,
+				KeyID:      keyId[0],
+				Namespace:  request.Data.Attributes.Namespace,
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var gpg GPGKey
+	gpgKey := fmt.Sprintf("%s:%s:%s", b.Tables.GPGTableName, parameters.Namespace, request.Data.Attributes.KeyID)
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return gpgGet(db, gpgKey, &gpg)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	newUUID := uuid.New()
+	pv := ProviderVersion{
+		ID:            newUUID.String(),
+		Version:       request.Data.Attributes.Version,
+		Protocols:     request.Data.Attributes.Protocols,
+		GPGKeyID:      request.Data.Attributes.KeyID,
+		GPGASCIIArmor: gpg.AsciiArmor,
+	}
+
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, pv.Version)
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionSet(db, pvKey, pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.RegistryProviderVersionsResponse{
+		Data: models.RegistryProviderVersionsResponseData{
+			ID:   pv.ID,
+			Type: "registry-provider-versions",
+			Attributes: models.RegistryProviderVersionsResponseAttributes{
+				Version:   pv.Version,
+				Protocols: pv.Protocols,
+				KeyID:     pv.GPGKeyID,
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, parameters.Version)
+	var pv ProviderVersion
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionGet(db, pvKey, &pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	newUUID := uuid.New()
+	platform := ProviderPlatform{
+		ID:       newUUID.String(),
+		OS:       request.Data.Attributes.OS,
+		Arch:     request.Data.Attributes.Arch,
+		SHASum:   request.Data.Attributes.Shasum,
+		Filename: request.Data.Attributes.Filename,
+	}
+
+	pv.Platform = append(pv.Platform, platform)
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionSet(db, pvKey, pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.RegistryProviderVersionPlatformsResponse{
+		Data: models.RegistryProviderVersionPlatformsResponseData{
+			ID:   platform.ID,
+			Type: "registry-provider-platforms",
+			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+				OS:       platform.OS,
+				Arch:     platform.Arch,
+				Shasum:   platform.SHASum,
+				Filename: platform.Filename,
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+func withBadgerDB(dbPath string, fn func(*badger.DB) error) error {
+	opts := badger.DefaultOptions(dbPath).WithLoggingLevel(badger.ERROR)
+	db, err := badger.Open(opts)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
 			log.Fatal(err)
 		}
-	}(db)
+	}()
 
-	moduleName := fmt.Sprintf("%s/%s/%s", parameters.Namespace, parameters.Name, parameters.System)
-	key := []byte(fmt.Sprintf("%s:%s:%s", b.ModuleTableName, moduleName, parameters.Version)) // Prefix for filtering
+	return fn(db)
+}
 
-	var moduleVersion ModuleVersion
-	err = db.View(func(txn *badger.Txn) error {
+func providerSet(db *badger.DB, key string, value Provider) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(key), data)
+	})
+}
+
+func providerGet(db *badger.DB, key string, value *Provider) error {
+	return db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			return err
 		}
 
 		return item.Value(func(v []byte) error {
-			return json.Unmarshal(v, &moduleVersion)
+			return json.Unmarshal(v, &value)
 		})
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	if moduleVersion.DownloadURL != "" {
-		return &moduleVersion.DownloadURL, nil
-	}
-
-	return nil, nil
 }
 
-func (b *BadgerDBBackend) ImportProvider(_ context.Context, provider registrytypes.ProviderImport) error {
-	pv := ProviderVersion{
-		Version:        provider.Version,
-		Name:           provider.Name,
-		Protocols:      provider.Protocols,
-		SHASUMUrl:      provider.SHASUMUrl,
-		SHASUMSigUrl:   provider.SHASUMSigUrl,
-		GPGASCIIArmor:  provider.GPGASCIIArmor,
-		GPGFingerprint: provider.GPGFingerprint,
-	}
-
-	var providers []Provider
-	for _, r := range provider.Release {
-		p := Provider{
-			OS:           r.OS,
-			Architecture: r.Architecture,
-			Filename:     r.Filename,
-			DownloadURL:  r.DownloadUrl,
-			ShaSUM:       r.SHASUM,
-		}
-
-		providers = append(providers, p)
-	}
-	pv.Provider = providers
-
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
-	if err != nil {
-		return err
-	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(db)
-
-	key := fmt.Sprintf("%s:%s:%s", b.ProviderTableName, provider.Name, provider.Version)
-	err = providerSet(db, key, pv)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (b *BadgerDBBackend) ImportModule(ctx context.Context, module registrytypes.ModuleImport) error {
-	opts := badger.DefaultOptions(b.DBPath).WithLoggingLevel(badger.ERROR)
-	db, err := badger.Open(opts)
-	if err != nil {
-		return err
-	}
-	defer func(client *badger.DB) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(db)
-
-	key := fmt.Sprintf("%s:%s:%s", b.ModuleTableName, module.Name, module.Version)
-	mv := ModuleVersion{
-		DownloadURL: module.DownloadUrl,
-		Version:     module.Version,
-	}
-	err = moduleSet(db, key, mv)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func providerSet(db *badger.DB, key string, value ProviderVersion) error {
+func providerVersionSet(db *badger.DB, key string, value ProviderVersion) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -333,12 +392,38 @@ func providerSet(db *badger.DB, key string, value ProviderVersion) error {
 	})
 }
 
-func moduleSet(db *badger.DB, key string, value ModuleVersion) error {
+func providerVersionGet(db *badger.DB, key string, value *ProviderVersion) error {
+	return db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(v []byte) error {
+			return json.Unmarshal(v, &value)
+		})
+	})
+}
+
+func gpgSet(db *badger.DB, key string, value GPGKey) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	return db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), data)
+	})
+}
+
+func gpgGet(db *badger.DB, key string, value *GPGKey) error {
+	return db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(v []byte) error {
+			return json.Unmarshal(v, &value)
+		})
 	})
 }
