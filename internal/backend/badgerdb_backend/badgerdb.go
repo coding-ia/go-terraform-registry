@@ -265,17 +265,6 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	/*
-		newUUID := uuid.New()
-		pv := ProviderVersion{
-			ID:            newUUID.String(),
-			Version:       request.Data.Attributes.Version,
-			Protocols:     request.Data.Attributes.Protocols,
-			GPGKeyID:      request.Data.Attributes.KeyID,
-			GPGASCIIArmor: gpg.AsciiArmor,
-		}
-	*/
-
 	var pv ProviderVersion
 	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, request.Data.Attributes.Version)
 	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
