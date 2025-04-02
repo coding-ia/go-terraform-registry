@@ -93,6 +93,11 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 	namespace := c.Param("ns")
 	name := c.Param("name")
 
+	if registry != "private" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		return
+	}
+
 	parameters := registrytypes.APIParameters{
 		Organization: organization,
 		Registry:     registry,
@@ -135,6 +140,11 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 	namespace := c.Param("ns")
 	name := c.Param("name")
 	version := c.Param("version")
+
+	if registry != "private" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		return
+	}
 
 	parameters := registrytypes.APIParameters{
 		Organization: organization,
