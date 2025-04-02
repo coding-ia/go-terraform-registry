@@ -128,9 +128,32 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	_, _ = provider, gpg
+	newUUID := uuid.New()
+	pv := ProviderVersion{
+		ID:            newUUID.String(),
+		Version:       request.Data.Attributes.Version,
+		Protocols:     request.Data.Attributes.Protocols,
+		GPGKeyID:      gpg.KeyID,
+		GPGASCIIArmor: gpg.AsciiArmor,
+	}
+	err = setProviderVersion(ctx, d.Tables.ProviderVersionTableName, *provider, pv)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	resp := &models.RegistryProviderVersionsResponse{
+		Data: models.RegistryProviderVersionsResponseData{
+			ID:   pv.ID,
+			Type: "registry-provider-versions",
+			Attributes: models.RegistryProviderVersionsResponseAttributes{
+				Version:   pv.Version,
+				Protocols: pv.Protocols,
+				KeyID:     pv.GPGKeyID,
+			},
+		},
+	}
+
+	return resp, nil
 }
 
 func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
@@ -249,4 +272,25 @@ func getGPG(ctx context.Context, tableName string, namespace string, keyId strin
 	}
 
 	return nil, nil
+}
+
+func setProviderVersion(ctx context.Context, tableName string, provider Provider, providerVersion ProviderVersion) error {
+	item := map[string]types.AttributeValue{
+		"provider_id":     &types.AttributeValueMemberS{Value: provider.ID},
+		"version":         &types.AttributeValueMemberS{Value: providerVersion.Version},
+		"protocols":       &types.AttributeValueMemberSS{Value: providerVersion.Protocols},
+		"gpg_key_id":      &types.AttributeValueMemberS{Value: providerVersion.GPGKeyID},
+		"gpg_ascii_armor": &types.AttributeValueMemberS{Value: providerVersion.GPGASCIIArmor},
+	}
+
+	svc, err := createDynamoDBClient(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = svc.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item:      item,
+	})
+
+	return nil
 }
