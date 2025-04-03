@@ -12,6 +12,7 @@ FROM alpine:3.21
 
 RUN addgroup -S repouser && adduser -S repouser -G repouser
 RUN mkdir /data && chown repouser:repouser /data
+RUN mkdir /store && chown repouser:repouser /store
 
 WORKDIR /app
 
@@ -21,10 +22,12 @@ COPY --from=builder /src/tfrepoctl /app
 RUN chown -R repouser:repouser /app
 
 VOLUME /data
+VOLUME /store
 
 EXPOSE 8080
 
 ENV BADGER_DB_PATH="/data/registry_db"
+ENV LOCAL_STORAGE_ASSETS_PATH="/store"
 
 USER repouser
 CMD ["/app/tfrepo_server"]
