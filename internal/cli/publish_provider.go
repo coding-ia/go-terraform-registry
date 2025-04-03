@@ -24,6 +24,7 @@ type PublishOptions struct {
 	GPGKeyID       string
 	Version        string
 	WorkingDir     string
+	ChunkUpload    bool
 }
 
 var publishOptions = &PublishOptions{}
@@ -36,6 +37,8 @@ var publishProviderCmd = &cobra.Command{
 	},
 }
 
+const chunkSize = 1024 * 1024 // 1MB
+
 func init() {
 	rootCmd.AddCommand(publishProviderCmd)
 
@@ -47,6 +50,7 @@ func init() {
 	publishProviderCmd.Flags().StringVar(&publishOptions.GPGKeyID, "gpg-key-id", "", "GPG Key ID")
 	publishProviderCmd.Flags().StringVar(&publishOptions.Version, "version", "", "Provider version")
 	publishProviderCmd.Flags().StringVar(&publishOptions.WorkingDir, "working-dir", "", "Provider working directory")
+	publishProviderCmd.Flags().BoolVar(&publishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
 
 	publishProviderCmd.MarkFlagRequired("endpoint")
 	publishProviderCmd.MarkFlagRequired("organization")
@@ -147,7 +151,11 @@ func publishProvider(ctx context.Context) {
 				return
 			}
 
-			err = uploadFile(providerBinaryPath, platformResponse.Data.Links.ProviderBinaryUpload)
+			if !publishOptions.ChunkUpload {
+				err = uploadFile(providerBinaryPath, platformResponse.Data.Links.ProviderBinaryUpload)
+			} else {
+				err = uploadFileChunks(providerBinaryPath, platformResponse.Data.Links.ProviderBinaryUpload)
+			}
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -318,6 +326,74 @@ func uploadFile(filePath, url string) error {
 			return fmt.Errorf("error reading response: %w", err)
 		}
 		return fmt.Errorf(string(respBody))
+	}
+
+	return nil
+}
+
+func uploadFileChunks(filePath, url string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Error closing file:", err)
+		}
+	}(file)
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	fileSize := fileInfo.Size()
+	totalChunks := (fileSize + chunkSize - 1) / chunkSize
+
+	buf := make([]byte, chunkSize)
+	for i := 0; i < int(totalChunks); i++ {
+		bytesRead, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		chunk := buf[:bytesRead]
+
+		err = sendChunk(url, chunk, i+1, int(totalChunks), fileInfo.Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func sendChunk(uploadURL string, chunk []byte, chunkNumber int, totalChunks int, fileName string) error {
+	client := &http.Client{}
+	req, err := http.NewRequest("PUT", uploadURL, bytes.NewReader(chunk))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Chunk-Number", fmt.Sprintf("%d", chunkNumber))
+	req.Header.Set("Total-Chunks", fmt.Sprintf("%d", totalChunks))
+	req.Header.Set("File-Name", fileName)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("Error closing body:", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned status: %s", resp.Status)
 	}
 
 	return nil
