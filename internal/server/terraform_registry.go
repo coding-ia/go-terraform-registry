@@ -9,8 +9,7 @@ import (
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/config/selector"
 	"go-terraform-registry/internal/controller"
-	"go-terraform-registry/internal/storage/s3_storage"
-	"log"
+	"go-terraform-registry/internal/storage"
 	"os"
 )
 
@@ -32,10 +31,10 @@ func StartServer(version string) {
 	b := selector.SelectBackend(ctx, c)
 
 	// Configure storage
-	s := s3_storage.NewS3Storage(c)
-	err := s.ConfigureStorage(ctx)
-	if err != nil {
-		log.Fatal(err)
+	s := selector.SelectStorage(ctx, c)
+	if sae, ok := s.(storage.RegistryProviderStorageAssetEndpoint); ok {
+		assetEndpoint := r.Group("/asset")
+		sae.ConfigureEndpoint(ctx, assetEndpoint)
 	}
 
 	// Configure controllers

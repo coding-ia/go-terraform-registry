@@ -17,6 +17,7 @@ type RegistryConfig struct {
 	Organization           string
 	S3BucketName           string
 	S3BucketRegion         string
+	StorageBackend         string
 	TokenEncryptionKey     string
 }
 
@@ -33,6 +34,7 @@ func GetRegistryConfig() RegistryConfig {
 		Organization:           os.Getenv("DEFAULT_ORGANIZATION"),
 		S3BucketName:           os.Getenv("S3_BUCKET_NAME"),
 		S3BucketRegion:         os.Getenv("S3_BUCKET_REGION"),
+		StorageBackend:         os.Getenv("STORAGE_BACKEND"),
 		TokenEncryptionKey:     os.Getenv("TOKEN_ENCRYPTION_KEY"),
 	}
 	if config.Organization == "" {
