@@ -100,7 +100,7 @@ func CreateGPGRequest(endpoint string, request models.GPGKeyRequest) (*models.GP
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusCreated {
 		var response models.GPGKeyResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {

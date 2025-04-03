@@ -186,7 +186,7 @@ func CreateProviderRequest(endpoint string, request models.RegistryProvidersRequ
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusCreated {
 		var response models.RegistryProvidersResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
@@ -225,7 +225,7 @@ func CreateProviderVersionRequest(endpoint string, request models.RegistryProvid
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusCreated {
 		var response models.RegistryProviderVersionsResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
@@ -264,7 +264,7 @@ func CreateProviderVersionPlatformsRequest(endpoint string, request models.Regis
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusCreated {
 		var response models.RegistryProviderVersionPlatformsResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
