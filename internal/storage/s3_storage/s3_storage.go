@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
+	"log"
 	"time"
 )
 
@@ -39,6 +40,9 @@ func (s *S3Storage) ConfigureStorage(ctx context.Context) error {
 	}
 
 	s.client = s3.NewFromConfig(cfg)
+
+	log.Println("Using S3 storage for providers & endpoints.")
+
 	return nil
 }
 

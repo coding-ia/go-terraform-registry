@@ -48,6 +48,8 @@ func (b *BadgerDBBackend) ConfigureBackend(_ context.Context) error {
 		b.DBPath = val
 	}
 
+	log.Println("Using BadgerDB for backend.")
+
 	return nil
 }
 

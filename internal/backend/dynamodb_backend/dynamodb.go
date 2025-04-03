@@ -16,6 +16,7 @@ import (
 	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/pgp"
 	registrytypes "go-terraform-registry/internal/types"
+	"log"
 	"strings"
 )
 
@@ -59,6 +60,8 @@ func (d *DynamoDBBackend) ConfigureBackend(ctx context.Context) error {
 	}
 
 	d.client = dynamodb.NewFromConfig(cfg)
+
+	log.Println("Using DynamoDB for backend.")
 
 	return nil
 }

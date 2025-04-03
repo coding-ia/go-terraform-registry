@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,6 +59,9 @@ func (l *LocalStorage) ConfigureEndpoint(ctx context.Context, routerGroup *gin.R
 	}
 	ae.AssetPath = os.Getenv("LOCAL_STORAGE_ASSETS_PATH")
 
+	log.Printf("Local Storage Endpoint: %s", l.Endpoint)
+	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
+
 	routerGroup.PUT("/upload/:token", ae.UploadFile)
 	routerGroup.GET("/download/:token", ae.DownloadFile)
 }
@@ -65,6 +69,8 @@ func (l *LocalStorage) ConfigureEndpoint(ctx context.Context, routerGroup *gin.R
 func (l *LocalStorage) ConfigureStorage(ctx context.Context) error {
 	secretKey, err := generateRandomSecret(32)
 	l.secretKey = []byte(secretKey)
+
+	log.Println("Using local storage for providers & endpoints.")
 
 	return err
 }
