@@ -53,7 +53,7 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 	}
 
 	userParams := registrytypes.UserParameters{
-		Organization: p.Config.Organization,
+		Organization: params.Namespace,
 	}
 
 	provider, err := p.Backend.GetProvider(c.Request.Context(), params, userParams)
@@ -72,7 +72,7 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 	shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", params.Name, params.Version)
 
 	key := fmt.Sprintf("%s/%s/%s/%s/%s", userParams.Organization, "private", params.Namespace, params.Name, params.Version)
-	
+
 	downloadURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, provider.Filename))
 	shaSumURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSum))
 	shaSumSigURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
@@ -91,7 +91,7 @@ func (p *ProviderController) Versions(c *gin.Context) {
 	}
 
 	userParams := registrytypes.UserParameters{
-		Organization: p.Config.Organization,
+		Organization: params.Namespace,
 	}
 
 	provider, err := p.Backend.GetProviderVersions(c.Request.Context(), params, userParams)
