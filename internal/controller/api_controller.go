@@ -35,9 +35,10 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 	api := r.Group("/api")
 
 	api.POST("/v2/organizations/:organization/registry-providers", ac.RegistryProviders)
-	api.POST("/registry/private/v2/gpg-keys", ac.GPGKeys)
 	api.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions", ac.RegistryProviderVersions)
 	api.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions/:version/platforms", ac.RegistryProviderVersionPlatforms)
+
+	api.POST("/registry/private/v2/gpg-keys", ac.GPGKeys)
 
 	return ac
 }
@@ -46,14 +47,14 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 	var req models.RegistryProvidersRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
 	organization := c.Param("organization")
 
 	if !strings.EqualFold(organization, req.Data.Attributes.Namespace) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
 		return
 	}
 
@@ -63,35 +64,35 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 
 	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 func (a *APIController) GPGKeys(c *gin.Context) {
 	var req models.GPGKeyRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
 	resp, err := a.Backend.GPGKey(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 	var req models.RegistryProviderVersionsRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -101,12 +102,12 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 	name := c.Param("name")
 
 	if registry != "private" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "registry must be private"})
 		return
 	}
 
 	if !strings.EqualFold(organization, namespace) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
 		return
 	}
 
@@ -119,7 +120,7 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 
 	resp, err := a.Backend.RegistryProviderVersions(c.Request.Context(), parameters, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -136,14 +137,14 @@ func (a *APIController) RegistryProviderVersions(c *gin.Context) {
 		ShasumsSigUpload: shaSumSigURL,
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 	var req models.RegistryProviderVersionPlatformsRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -154,12 +155,12 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 	version := c.Param("version")
 
 	if registry != "private" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "registry must be private"})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "registry must be private"})
 		return
 	}
 
 	if !strings.EqualFold(organization, namespace) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace must match organization"})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
 		return
 	}
 
@@ -173,7 +174,7 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 
 	resp, err := a.Backend.RegistryProviderVersionPlatforms(c.Request.Context(), parameters, req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -184,5 +185,5 @@ func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
 		ProviderBinaryUpload: uploadURL,
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusCreated, resp)
 }
