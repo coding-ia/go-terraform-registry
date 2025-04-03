@@ -9,10 +9,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -112,38 +114,12 @@ func (l *LocalStorage) GenerateDownloadURL(ctx context.Context, path string) (st
 }
 
 func (a *AssetEndpoint) UploadFile(c *gin.Context) {
-	tokenString := c.Param("token")
+	chunkNumber := c.GetHeader("Chunk-Number")
 
-	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return a.secretKey, nil
-	})
-	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
-		return
-	}
-
-	claims, ok := token.Claims.(*AssetClaims)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
-		return
-	}
-
-	fileData, err := c.GetRawData()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
-		return
-	}
-
-	convertedPath := filepath.FromSlash(claims.Filename)
-	joinedPath := filepath.Join(a.AssetPath, convertedPath)
-	directoryPath := filepath.Dir(joinedPath)
-	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create provider directory"})
-		return
-	}
-	if err := os.WriteFile(joinedPath, fileData, 0644); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
-		return
+	if chunkNumber == "" {
+		uploadFile(c, a.AssetPath, a.secretKey)
+	} else {
+		uploadFileChunk(c, a.AssetPath, a.secretKey)
 	}
 }
 
@@ -168,6 +144,146 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
 
 	c.File(joinedPath)
+}
+
+func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {
+	tokenString := c.Param("token")
+
+	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return secretKey, nil
+	})
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	claims, ok := token.Claims.(*AssetClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		return
+	}
+
+	fileData, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		return
+	}
+
+	convertedPath := filepath.FromSlash(claims.Filename)
+	joinedPath := filepath.Join(assetPath, convertedPath)
+	directoryPath := filepath.Dir(joinedPath)
+	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create provider directory"})
+		return
+	}
+	if err := os.WriteFile(joinedPath, fileData, 0644); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		return
+	}
+}
+
+func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
+	tokenString := c.Param("token")
+
+	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return secretKey, nil
+	})
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	claims, ok := token.Claims.(*AssetClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		return
+	}
+
+	chunkNumberStr := c.GetHeader("Chunk-Number")
+	totalChunksStr := c.GetHeader("Total-Chunks")
+	chunkFileName := c.GetHeader("File-Name")
+
+	chunkNumber, err := strconv.Atoi(chunkNumberStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Chunk-Number"})
+		return
+	}
+
+	totalChunks, err := strconv.Atoi(totalChunksStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Total-Chunks"})
+		return
+	}
+
+	chunkData, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read chunk data"})
+		return
+	}
+
+	convertedPath := filepath.FromSlash(claims.Filename)
+	joinedPath := filepath.Join(assetPath, convertedPath)
+	directoryPath := filepath.Dir(joinedPath)
+
+	chunkedFileName := fmt.Sprintf("%s.part%d", chunkFileName, chunkNumber)
+	chunkedFilePath := filepath.Join(directoryPath, chunkedFileName)
+
+	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create provider directory"})
+		return
+	}
+	if err := os.WriteFile(chunkedFilePath, chunkData, 0644); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		return
+	}
+
+	if chunkNumber == totalChunks {
+		err = assembleFile(directoryPath, chunkFileName, totalChunks)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assemble file"})
+			return
+		}
+	}
+}
+
+func assembleFile(directoryPath string, fileName string, totalChunks int) error {
+	fullPath := filepath.Join(directoryPath, fileName)
+	assembledFile, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
+	defer func(assembledFile *os.File) {
+		err := assembledFile.Close()
+		if err != nil {
+			fmt.Println("Error closing file:", err)
+		}
+	}(assembledFile)
+
+	for i := 1; i <= totalChunks; i++ {
+		chunkedFileName := fmt.Sprintf("%s.part%d", fileName, i)
+		chunkedPath := filepath.Join(directoryPath, chunkedFileName)
+		chunkFile, err := os.Open(chunkedPath)
+		if err != nil {
+			return err
+		}
+		defer func(chunkFile *os.File, path string) {
+			err := chunkFile.Close()
+			if err != nil {
+				fmt.Println("Error closing file:", err)
+			}
+			err = os.Remove(path)
+			if err != nil {
+				fmt.Println("Error removing file:", err)
+			}
+		}(chunkFile, chunkedPath)
+
+		_, err = io.Copy(assembledFile, chunkFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func generateRandomSecret(n int) (string, error) {
