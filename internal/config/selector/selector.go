@@ -37,8 +37,7 @@ func SelectStorage(ctx context.Context, config config.RegistryConfig) storage.Re
 	case "local":
 		selected = local_storage.NewLocalStorage(config)
 	default:
-
-		selected = s3_storage.NewS3Storage(config)
+		selected = local_storage.NewLocalStorage(config)
 	}
 
 	_ = selected.ConfigureStorage(ctx)
