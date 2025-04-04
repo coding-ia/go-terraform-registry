@@ -10,7 +10,7 @@ import (
 
 type APIController struct {
 	Config  registryconfig.RegistryConfig
-	Backend backend.RegistryProviderBackend
+	Backend backend.Backend
 	Storage storage.RegistryProviderStorage
 }
 
@@ -18,7 +18,7 @@ type RegistryAPIController interface {
 	CreateEndpoints(r *gin.Engine)
 }
 
-func NewAPIController(config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend, storage storage.RegistryProviderStorage) RegistryAPIController {
+func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryAPIController {
 	ac := &APIController{
 		Config:  config,
 		Backend: backend,

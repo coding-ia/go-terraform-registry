@@ -9,21 +9,24 @@ import (
 	"go-terraform-registry/internal/storage"
 	"go-terraform-registry/internal/storage/local_storage"
 	"go-terraform-registry/internal/storage/s3_storage"
+	"log"
 )
 
-func SelectBackend(ctx context.Context, config config.RegistryConfig) backendbase.RegistryProviderBackend {
-	var selected backendbase.RegistryProviderBackend
+func SelectBackend(ctx context.Context, config config.RegistryConfig) *backendbase.Backend {
+	var selected *backendbase.Backend
+	var err error
 
 	switch config.Backend {
 	case "badgerdb":
-		selected = badgerdbbackend.NewBadgerDBBackend(config)
+		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
 	case "dynamodb":
-		selected = dynamodbbackend.NewDynamoDBBackend(config)
+		selected, err = dynamodbbackend.NewDynamoDBBackend(ctx, config)
 	default:
-		selected = badgerdbbackend.NewBadgerDBBackend(config)
+		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
 	}
-
-	_ = selected.ConfigureBackend(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return selected
 }

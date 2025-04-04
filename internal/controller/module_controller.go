@@ -12,7 +12,7 @@ import (
 
 type ModuleController struct {
 	Config  registryconfig.RegistryConfig
-	Backend backend.RegistryProviderBackend
+	Backend backend.Backend
 }
 
 type RegistryModuleController interface {
@@ -20,7 +20,7 @@ type RegistryModuleController interface {
 	Versions(*gin.Context)
 }
 
-func NewModuleController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend) RegistryModuleController {
+func NewModuleController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend) RegistryModuleController {
 	mc := &ModuleController{
 		Config:  config,
 		Backend: backend,

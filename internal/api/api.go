@@ -8,6 +8,6 @@ import (
 
 type api struct {
 	Config  registryconfig.RegistryConfig
-	Backend backend.RegistryProviderBackend
+	Backend backend.Backend
 	Storage storage.RegistryProviderStorage
 }
