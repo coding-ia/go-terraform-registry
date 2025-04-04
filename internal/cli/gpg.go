@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"go-terraform-registry/internal/api/models"
@@ -29,6 +30,16 @@ var gpgCmd = &cobra.Command{
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a GPG key",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		endpoint, _ := cmd.Flags().GetString("endpoint")
+		value := setAuthTokenFlag(cmd, endpoint)
+
+		if value == "" {
+			return errors.New("required flag(s) \"auth-token\" not set")
+		}
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		gpgAdd(cmd.Context())
 	},
