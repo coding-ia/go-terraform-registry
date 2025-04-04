@@ -4,26 +4,23 @@ import (
 	"context"
 	backendbase "go-terraform-registry/internal/backend"
 	badgerdbbackend "go-terraform-registry/internal/backend/badgerdb_backend"
-	dynamodbbackend "go-terraform-registry/internal/backend/dynamodb_backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
 	"go-terraform-registry/internal/storage/local_storage"
 	"go-terraform-registry/internal/storage/s3_storage"
 )
 
-func SelectBackend(ctx context.Context, config config.RegistryConfig) backendbase.RegistryProviderBackend {
-	var selected backendbase.RegistryProviderBackend
+func SelectBackend(ctx context.Context, config config.RegistryConfig) *backendbase.Backend {
+	var selected *backendbase.Backend
 
 	switch config.Backend {
 	case "badgerdb":
 		selected = badgerdbbackend.NewBadgerDBBackend(config)
 	case "dynamodb":
-		selected = dynamodbbackend.NewDynamoDBBackend(config)
+		//selected = dynamodbbackend.NewDynamoDBBackend(config)
 	default:
 		selected = badgerdbbackend.NewBadgerDBBackend(config)
 	}
-
-	_ = selected.ConfigureBackend(ctx)
 
 	return selected
 }

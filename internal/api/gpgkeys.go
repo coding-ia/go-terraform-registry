@@ -19,7 +19,6 @@ func (a *GPGKeysAPI) Add(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
-
 	resp, err := a.Backend.GPGKeysAdd(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})

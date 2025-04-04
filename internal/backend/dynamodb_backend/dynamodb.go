@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-var _ backend.RegistryProviderBackend = &DynamoDBBackend{}
+var _ backend.RegistryBackend = &DynamoDBBackend{}
 
 type DynamoDBBackend struct {
 	Config config.RegistryConfig
@@ -37,7 +37,7 @@ type DynamoTables struct {
 	ModuleTableName          string
 }
 
-func NewDynamoDBBackend(config config.RegistryConfig) backend.RegistryProviderBackend {
+func NewDynamoDBBackend(config config.RegistryConfig) backend.RegistryBackend {
 	return &DynamoDBBackend{
 		Config: config,
 	}

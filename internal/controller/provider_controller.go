@@ -14,7 +14,7 @@ import (
 
 type ProviderController struct {
 	Config  registryconfig.RegistryConfig
-	Backend backend.RegistryProviderBackend
+	Backend backend.Backend
 	Storage storage.RegistryProviderStorage
 }
 
@@ -23,7 +23,7 @@ type RegistryProviderController interface {
 	Versions(*gin.Context)
 }
 
-func NewProviderController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend, storage storage.RegistryProviderStorage) RegistryProviderController {
+func NewProviderController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryProviderController {
 	pc := &ProviderController{
 		Config:  config,
 		Backend: backend,
