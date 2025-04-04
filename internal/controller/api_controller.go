@@ -20,7 +20,6 @@ type APIController struct {
 }
 
 type RegistryAPIController interface {
-	RegistryProviders(c *gin.Context)
 	RegistryProviderVersions(c *gin.Context)
 	RegistryProviderVersionPlatforms(c *gin.Context)
 }
@@ -59,10 +58,6 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 	endpoint.DELETE("/registry/:registry_name/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
 
 	return ac
-}
-
-func (a *APIController) RegistryProviders(c *gin.Context) {
-
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {
