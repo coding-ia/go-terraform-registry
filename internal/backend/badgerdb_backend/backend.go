@@ -1,6 +1,7 @@
 package badgerdb_backend
 
 import (
+	"context"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"log"
@@ -20,7 +21,7 @@ type BadgerTables struct {
 	ModuleTableName          string
 }
 
-func NewBadgerDBBackend(config config.RegistryConfig) *backend.Backend {
+func NewBadgerDBBackend(_ context.Context, config config.RegistryConfig) (*backend.Backend, error) {
 	b := &BadgerDBBackend{
 		Config: config,
 	}
@@ -32,7 +33,7 @@ func NewBadgerDBBackend(config config.RegistryConfig) *backend.Backend {
 		ProvidersBackend:        b,
 		ProviderVersionsBackend: b,
 		GPGKeysBackend:          b,
-	}
+	}, nil
 }
 
 func configureBackend(badgerDBBackend *BadgerDBBackend) {
