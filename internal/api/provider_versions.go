@@ -21,7 +21,7 @@ func (a *ProviderVersionsAPI) CreateVersion(c *gin.Context) {
 
 	organization := c.Param("organization")
 	registry := c.Param("registry")
-	namespace := c.Param("ns")
+	namespace := c.Param("namespace")
 	name := c.Param("name")
 
 	if registry != "private" {
@@ -85,7 +85,7 @@ func (a *ProviderVersionsAPI) CreatePlatform(c *gin.Context) {
 
 	organization := c.Param("organization")
 	registry := c.Param("registry")
-	namespace := c.Param("ns")
+	namespace := c.Param("namespace")
 	name := c.Param("name")
 	version := c.Param("version")
 
