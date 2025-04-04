@@ -308,7 +308,7 @@ func (b *BadgerDBBackend) ProviderVersionsCreate(ctx context.Context, parameters
 	return resp, nil
 }
 
-func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+func (b *BadgerDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 
 	var p Provider
@@ -350,11 +350,11 @@ func (b *BadgerDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionPlatformsResponse{
-		Data: models.RegistryProviderVersionPlatformsResponseData{
+	resp := &apimodels.ProviderVersionPlatformsResponse{
+		Data: apimodels.ProviderVersionPlatformsDataResponse{
 			ID:   platform.ID,
 			Type: "registry-provider-platforms",
-			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+			Attributes: apimodels.ProviderVersionPlatformsAttributesResponse{
 				OS:       platform.OS,
 				Arch:     platform.Arch,
 				Shasum:   platform.SHASum,

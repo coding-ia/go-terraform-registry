@@ -1,16 +1,11 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
-	"go-terraform-registry/internal/models"
 	"go-terraform-registry/internal/storage"
-	registrytypes "go-terraform-registry/internal/types"
-	"net/http"
-	"strings"
 )
 
 type APIController struct {
@@ -20,7 +15,6 @@ type APIController struct {
 }
 
 type RegistryAPIController interface {
-	RegistryProviderVersionPlatforms(c *gin.Context)
 }
 
 func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend, storage storage.RegistryProviderStorage) RegistryAPIController {
@@ -68,52 +62,4 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
 
 	return ac
-}
-
-func (a *APIController) RegistryProviderVersionPlatforms(c *gin.Context) {
-	var req models.RegistryProviderVersionPlatformsRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	organization := c.Param("organization")
-	registry := c.Param("registry")
-	namespace := c.Param("ns")
-	name := c.Param("name")
-	version := c.Param("version")
-
-	if registry != "private" {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "registry must be private"})
-		return
-	}
-
-	if !strings.EqualFold(organization, namespace) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
-		return
-	}
-
-	parameters := registrytypes.APIParameters{
-		Organization: organization,
-		Registry:     registry,
-		Namespace:    namespace,
-		Name:         name,
-		Version:      version,
-	}
-
-	resp, err := a.Backend.RegistryProviderVersionPlatforms(c.Request.Context(), parameters, req)
-	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
-	uploadURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, req.Data.Attributes.Filename))
-
-	resp.Data.Links = models.RegistryProviderVersionPlatformsLinks{
-		ProviderBinaryUpload: uploadURL,
-	}
-
-	c.JSON(http.StatusCreated, resp)
 }

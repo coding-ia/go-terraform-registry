@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	apimodels "go-terraform-registry/internal/api/models"
-	"go-terraform-registry/internal/models"
 	"io"
 	"net/http"
 	"os"
@@ -79,10 +78,10 @@ func publishProvider(ctx context.Context) {
 		return
 	}
 
-	providerVersionsRequest := models.RegistryProviderVersionsRequest{
-		Data: models.RegistryProviderVersionsRequestData{
+	providerVersionsRequest := apimodels.ProviderVersionsRequest{
+		Data: apimodels.ProviderVersionsDataRequest{
 			Type: "registry-provider-versions",
-			Attributes: models.RegistryProviderVersionsRequestAttributes{
+			Attributes: apimodels.ProviderVersionsAttributesRequest{
 				Version:   publishOptions.Version,
 				KeyID:     publishOptions.GPGKeyID,
 				Protocols: []string{"6.0"},
@@ -102,13 +101,13 @@ func publishProvider(ctx context.Context) {
 	shaSumsPath := filepath.Join(publishOptions.WorkingDir, shaSumsFile)
 	shaSumsSigPath := filepath.Join(publishOptions.WorkingDir, shaSumsSigFile)
 
-	err = uploadFile(shaSumsPath, providerVersionsResponse.Data.Links.ShasumsUpload)
+	err = uploadFile(shaSumsPath, *providerVersionsResponse.Data.Links.ShasumsUpload)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println("Uploaded SHA256SUMS file: ", shaSumsFile)
-	err = uploadFile(shaSumsSigPath, providerVersionsResponse.Data.Links.ShasumsSigUpload)
+	err = uploadFile(shaSumsSigPath, *providerVersionsResponse.Data.Links.ShasumsSigUpload)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -134,10 +133,10 @@ func publishProvider(ctx context.Context) {
 		if !os.IsNotExist(err) {
 			operatingSystem, architecture := parseProviderFile(k)
 
-			platformRequest := models.RegistryProviderVersionPlatformsRequest{
-				Data: models.RegistryProviderVersionPlatformsRequestData{
+			platformRequest := apimodels.ProviderVersionPlatformsRequest{
+				Data: apimodels.ProviderVersionPlatformsDataRequest{
 					Type: "registry-provider-version-platforms",
-					Attributes: models.RegistryProviderVersionPlatformsRequestAttributes{
+					Attributes: apimodels.ProviderVersionPlatformsAttributesRequest{
 						OS:       operatingSystem,
 						Arch:     architecture,
 						Shasum:   v,
@@ -207,7 +206,7 @@ func CreateProviderRequest(endpoint string, request apimodels.ProvidersRequest) 
 	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
 }
 
-func CreateProviderVersionRequest(endpoint string, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+func CreateProviderVersionRequest(endpoint string, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		fmt.Println("Error encoding JSON:", err)
@@ -235,7 +234,7 @@ func CreateProviderVersionRequest(endpoint string, request models.RegistryProvid
 	}
 
 	if resp.StatusCode == http.StatusCreated {
-		var response models.RegistryProviderVersionsResponse
+		var response apimodels.ProviderVersionsResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
 			return nil, err
@@ -246,7 +245,7 @@ func CreateProviderVersionRequest(endpoint string, request models.RegistryProvid
 	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
 }
 
-func CreateProviderVersionPlatformsRequest(endpoint string, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+func CreateProviderVersionPlatformsRequest(endpoint string, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		fmt.Println("Error encoding JSON:", err)
@@ -274,7 +273,7 @@ func CreateProviderVersionPlatformsRequest(endpoint string, request models.Regis
 	}
 
 	if resp.StatusCode == http.StatusCreated {
-		var response models.RegistryProviderVersionPlatformsResponse
+		var response apimodels.ProviderVersionPlatformsResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
 			return nil, err

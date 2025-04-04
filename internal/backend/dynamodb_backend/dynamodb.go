@@ -309,7 +309,7 @@ func (d *DynamoDBBackend) ProviderVersionsCreate(ctx context.Context, parameters
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+func (d *DynamoDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
@@ -340,11 +340,11 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionPlatformsResponse{
-		Data: models.RegistryProviderVersionPlatformsResponseData{
+	resp := &apimodels.ProviderVersionPlatformsResponse{
+		Data: apimodels.ProviderVersionPlatformsDataResponse{
 			ID:   platform.ID,
 			Type: "registry-provider-platforms",
-			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+			Attributes: apimodels.ProviderVersionPlatformsAttributesResponse{
 				OS:       platform.OS,
 				Arch:     platform.Arch,
 				Shasum:   platform.SHASum,

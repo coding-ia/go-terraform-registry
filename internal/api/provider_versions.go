@@ -76,7 +76,51 @@ func (a *ProviderVersionsAPI) DeleteVersion(c *gin.Context) {
 }
 
 func (a *ProviderVersionsAPI) CreatePlatform(c *gin.Context) {
+	var req models.ProviderVersionPlatformsRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+
+	organization := c.Param("organization")
+	registry := c.Param("registry")
+	namespace := c.Param("ns")
+	name := c.Param("name")
+	version := c.Param("version")
+
+	if registry != "private" {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "registry must be private"})
+		return
+	}
+
+	if !strings.EqualFold(organization, namespace) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
+		return
+	}
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+		Version:      version,
+	}
+
+	resp, err := a.Backend.ProviderVersionPlatformsCreate(c.Request.Context(), parameters, req)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		return
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
+	uploadURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, req.Data.Attributes.Filename))
+
+	resp.Data.Links = models.ProviderVersionPlatformsLinksResponse{
+		ProviderBinaryUpload: uploadURL,
+	}
+
+	c.JSON(http.StatusCreated, resp)
 }
 
 func (a *ProviderVersionsAPI) ListPlatform(c *gin.Context) {
