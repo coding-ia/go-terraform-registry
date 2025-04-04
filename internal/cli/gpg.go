@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"go-terraform-registry/internal/api/models"
 	"io"
+	"log"
 	"net/http"
 	"os"
 )
@@ -40,13 +41,14 @@ func init() {
 	addCmd.Flags().StringVar(&gpgOptions.Endpoint, "endpoint", "", "Repository endpoint")
 	addCmd.Flags().StringVar(&gpgOptions.Namespace, "namespace", "", "Provider namespace")
 	addCmd.Flags().StringVar(&gpgOptions.GPGPublicKeyPath, "gpg-key-file", "", "GPG key file path")
+	addCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
-	addCmd.MarkFlagRequired("endpoint")
-	addCmd.MarkFlagRequired("namespace")
-	addCmd.MarkFlagRequired("gpg-key-file")
+	_ = addCmd.MarkFlagRequired("endpoint")
+	_ = addCmd.MarkFlagRequired("namespace")
+	_ = addCmd.MarkFlagRequired("gpg-key-file")
 }
 
-func gpgAdd(ctx context.Context) {
+func gpgAdd(_ context.Context) {
 	gpgKey, err := readFileContents(gpgOptions.GPGPublicKeyPath)
 	if err != nil {
 		fmt.Println(err)
@@ -83,10 +85,17 @@ func CreateGPGRequest(endpoint string, request models.GPGKeysRequest) (*models.G
 	apiEndpoint := "/api/registry/private/v2/gpg-keys"
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatalf("Error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making POST request: %v", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()

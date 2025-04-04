@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	apimodels "go-terraform-registry/internal/api/models"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -51,6 +52,7 @@ func init() {
 	publishProviderCmd.Flags().StringVar(&publishOptions.Version, "version", "", "Provider version")
 	publishProviderCmd.Flags().StringVar(&publishOptions.WorkingDir, "working-dir", "", "Provider working directory")
 	publishProviderCmd.Flags().BoolVar(&publishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
+	publishProviderCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
 	_ = publishProviderCmd.MarkFlagRequired("endpoint")
 	_ = publishProviderCmd.MarkFlagRequired("organization")
@@ -58,6 +60,7 @@ func init() {
 	_ = publishProviderCmd.MarkFlagRequired("namespace")
 	_ = publishProviderCmd.MarkFlagRequired("gpg-key-id")
 	_ = publishProviderCmd.MarkFlagRequired("version")
+	_ = publishProviderCmd.MarkFlagRequired("auth-token")
 }
 
 func publishProvider(_ context.Context) {
@@ -177,10 +180,17 @@ func CreateProviderRequest(endpoint string, request apimodels.ProvidersRequest) 
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers", publishOptions.Organization)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatalf("Error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making POST request: %v", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -216,10 +226,17 @@ func CreateProviderVersionRequest(endpoint string, request apimodels.ProviderVer
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatalf("Error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making POST request: %v", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -255,10 +272,17 @@ func CreateProviderVersionPlatformsRequest(endpoint string, request apimodels.Pr
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s/platforms", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name, publishOptions.Version)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatalf("Error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error making POST request: %v", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
