@@ -10,6 +10,7 @@ import (
 	"go-terraform-registry/internal/config/selector"
 	"go-terraform-registry/internal/controller"
 	"go-terraform-registry/internal/storage"
+	"log"
 	"os"
 )
 
@@ -24,7 +25,9 @@ func StartServer(version string) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	gin.DefaultWriter = log.Writer()
 	r := gin.Default()
+	r.Use(gin.LoggerWithWriter(log.Writer()))
 
 	// Get configuration and select backend
 	c := config.GetRegistryConfig()
@@ -42,7 +45,9 @@ func StartServer(version string) {
 	_ = controller.NewProviderController(r, c, b, s)
 	_ = controller.NewModuleController(r, c, b)
 	_ = controller.NewAuthenticationController(r, c)
-	_ = controller.NewAPIController(r, c, b, s)
+	apiController := controller.NewAPIController(c, b, s)
+
+	apiController.CreateEndpoints(r)
 
 	lambdaFunction := os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 

@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
+	apimodels "go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
@@ -203,7 +204,7 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+func (d *DynamoDBBackend) ProvidersCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 
 	p, _ := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
@@ -218,15 +219,15 @@ func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters regi
 		}
 	}
 
-	resp := &models.RegistryProvidersResponse{
-		Data: models.RegistryProvidersResponseData{
+	resp := &apimodels.ProvidersResponse{
+		Data: apimodels.ProvidersDataResponse{
 			ID:   p.ID,
 			Type: "registry-providers",
-			Attributes: models.RegistryProvidersResponseAttributes{
+			Attributes: apimodels.ProvidersAttributesResponse{
 				Name:         request.Data.Attributes.Name,
 				Namespace:    request.Data.Attributes.Namespace,
 				RegistryName: request.Data.Attributes.RegistryName,
-				Permissions: models.RegistryProvidersResponsePermissions{
+				Permissions: apimodels.ProvidersPermissionsResponse{
 					CanDelete: true,
 				},
 			},
@@ -236,7 +237,7 @@ func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters regi
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+func (d *DynamoDBBackend) GPGKeysAdd(ctx context.Context, request apimodels.GPGKeysRequest) (*apimodels.GPGKeysResponse, error) {
 	newUUID := uuid.New()
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
 
@@ -251,10 +252,10 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 		return nil, err
 	}
 
-	resp := &models.GPGKeyResponse{
-		Data: models.GPGKeyResponseData{
+	resp := &apimodels.GPGKeysResponse{
+		Data: apimodels.GPGKeysDataResponse{
 			ID: newUUID.String(),
-			Attributes: models.GPGKeyResponseAttributes{
+			Attributes: apimodels.GPGKeysAttributesResponse{
 				AsciiArmor: request.Data.Attributes.AsciiArmor,
 				KeyID:      keyId[0],
 				Namespace:  request.Data.Attributes.Namespace,
@@ -265,7 +266,7 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+func (d *DynamoDBBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
@@ -293,11 +294,11 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionsResponse{
-		Data: models.RegistryProviderVersionsResponseData{
+	resp := &apimodels.ProviderVersionsResponse{
+		Data: apimodels.ProviderVersionsDataResponse{
 			ID:   pv.ID,
 			Type: "registry-provider-versions",
-			Attributes: models.RegistryProviderVersionsResponseAttributes{
+			Attributes: apimodels.ProviderVersionsAttributesResponse{
 				Version:   pv.Version,
 				Protocols: pv.Protocols,
 				KeyID:     pv.GPGKeyID,
@@ -308,7 +309,7 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionPlatformsRequest) (*models.RegistryProviderVersionPlatformsResponse, error) {
+func (d *DynamoDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
@@ -339,11 +340,11 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionPlatformsResponse{
-		Data: models.RegistryProviderVersionPlatformsResponseData{
+	resp := &apimodels.ProviderVersionPlatformsResponse{
+		Data: apimodels.ProviderVersionPlatformsDataResponse{
 			ID:   platform.ID,
 			Type: "registry-provider-platforms",
-			Attributes: models.RegistryProviderVersionPlatformsResponseAttributes{
+			Attributes: apimodels.ProviderVersionPlatformsAttributesResponse{
 				OS:       platform.OS,
 				Arch:     platform.Arch,
 				Shasum:   platform.SHASum,

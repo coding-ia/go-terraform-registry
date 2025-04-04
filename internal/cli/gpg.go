@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
-	"go-terraform-registry/internal/models"
+	"go-terraform-registry/internal/api/models"
 	"io"
 	"net/http"
 	"os"
@@ -53,10 +53,10 @@ func gpgAdd(ctx context.Context) {
 		return
 	}
 
-	gpgKeyRequest := models.GPGKeyRequest{
-		Data: models.GPGKeyRequestData{
+	gpgKeyRequest := models.GPGKeysRequest{
+		Data: models.GPGKeysDataRequest{
 			Type: "gpg-keys",
-			Attributes: models.GPGKeyRequestAttributes{
+			Attributes: models.GPGKeysAttributesRequest{
 				Namespace:  gpgOptions.Namespace,
 				AsciiArmor: gpgKey,
 			},
@@ -73,7 +73,7 @@ func gpgAdd(ctx context.Context) {
 	fmt.Println(fmt.Sprintf("KEY ID: %s", gpgKeyResponse.Data.Attributes.KeyID))
 }
 
-func CreateGPGRequest(endpoint string, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+func CreateGPGRequest(endpoint string, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		fmt.Println("Error encoding JSON:", err)
@@ -101,7 +101,7 @@ func CreateGPGRequest(endpoint string, request models.GPGKeyRequest) (*models.GP
 	}
 
 	if resp.StatusCode == http.StatusCreated {
-		var response models.GPGKeyResponse
+		var response models.GPGKeysResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
 			return nil, err
