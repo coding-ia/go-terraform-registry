@@ -34,9 +34,18 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 
 	endpoint := r.Group("/api")
 
-	endpoint.POST("/v2/organizations/:organization/registry-providers", ac.RegistryProviders)
 	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions", ac.RegistryProviderVersions)
 	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions/:version/platforms", ac.RegistryProviderVersionPlatforms)
+
+	providersAPI := api.ProvidersAPI{
+		Config:  config,
+		Backend: backend,
+		Storage: storage,
+	}
+	endpoint.GET("/v2/organizations/:organization_name/registry-providers", providersAPI.List)
+	endpoint.POST("/v2/organizations/:organization/registry-providers", providersAPI.Create)
+	endpoint.GET("/v2/organizations/:organization_name/registry-providers/:registry_name/:namespace/:name", providersAPI.Get)
+	endpoint.DELETE("/v2/organizations/:organization_name/registry-providers/:registry_name/:namespace/:name", providersAPI.Delete)
 
 	gpgKeysAPI := api.GPGKeysAPI{
 		Config:  config,
@@ -53,31 +62,7 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 }
 
 func (a *APIController) RegistryProviders(c *gin.Context) {
-	var req models.RegistryProvidersRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	organization := c.Param("organization")
-
-	if !strings.EqualFold(organization, req.Data.Attributes.Namespace) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
-		return
-	}
-
-	parameters := registrytypes.APIParameters{
-		Organization: organization,
-	}
-
-	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
-	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, resp)
 }
 
 func (a *APIController) RegistryProviderVersions(c *gin.Context) {

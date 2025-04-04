@@ -204,7 +204,7 @@ func (d *DynamoDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 	return nil, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+func (d *DynamoDBBackend) ProvidersCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 
 	p, _ := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
@@ -219,15 +219,15 @@ func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters regi
 		}
 	}
 
-	resp := &models.RegistryProvidersResponse{
-		Data: models.RegistryProvidersResponseData{
+	resp := &apimodels.ProvidersResponse{
+		Data: apimodels.ProvidersDataResponse{
 			ID:   p.ID,
 			Type: "registry-providers",
-			Attributes: models.RegistryProvidersResponseAttributes{
+			Attributes: apimodels.ProvidersAttributesResponse{
 				Name:         request.Data.Attributes.Name,
 				Namespace:    request.Data.Attributes.Namespace,
 				RegistryName: request.Data.Attributes.RegistryName,
-				Permissions: models.RegistryProvidersResponsePermissions{
+				Permissions: apimodels.ProvidersPermissionsResponse{
 					CanDelete: true,
 				},
 			},

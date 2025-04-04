@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
+	apimodels "go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/models"
 	"io"
 	"net/http"
@@ -61,10 +62,10 @@ func init() {
 }
 
 func publishProvider(ctx context.Context) {
-	providerRequest := models.RegistryProvidersRequest{
-		Data: models.RegistryProvidersRequestData{
+	providerRequest := apimodels.ProvidersRequest{
+		Data: apimodels.ProvidersDataRequest{
 			Type: "registry-providers",
-			Attributes: models.RegistryProvidersRequestAttributes{
+			Attributes: apimodels.ProvidersAttributesRequest{
 				Name:         publishOptions.Name,
 				Namespace:    publishOptions.Namespace,
 				RegistryName: publishOptions.RepositoryName,
@@ -167,7 +168,7 @@ func publishProvider(ctx context.Context) {
 	}
 }
 
-func CreateProviderRequest(endpoint string, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+func CreateProviderRequest(endpoint string, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		fmt.Println("Error encoding JSON:", err)
@@ -195,7 +196,7 @@ func CreateProviderRequest(endpoint string, request models.RegistryProvidersRequ
 	}
 
 	if resp.StatusCode == http.StatusCreated {
-		var response models.RegistryProvidersResponse
+		var response apimodels.ProvidersResponse
 		err := json.Unmarshal(body, &response)
 		if err != nil {
 			return nil, err

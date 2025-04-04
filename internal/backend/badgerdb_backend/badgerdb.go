@@ -177,7 +177,7 @@ func (b *BadgerDBBackend) GetModuleDownload(ctx context.Context, parameters regi
 	return nil, nil
 }
 
-func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProvidersRequest) (*models.RegistryProvidersResponse, error) {
+func (b *BadgerDBBackend) ProvidersCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
 	var p Provider
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
@@ -197,15 +197,15 @@ func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters regi
 		return nil, err
 	}
 
-	resp := &models.RegistryProvidersResponse{
-		Data: models.RegistryProvidersResponseData{
+	resp := &apimodels.ProvidersResponse{
+		Data: apimodels.ProvidersDataResponse{
 			ID:   p.ID,
 			Type: "registry-providers",
-			Attributes: models.RegistryProvidersResponseAttributes{
+			Attributes: apimodels.ProvidersAttributesResponse{
 				Name:         request.Data.Attributes.Name,
 				Namespace:    request.Data.Attributes.Namespace,
 				RegistryName: request.Data.Attributes.RegistryName,
-				Permissions: models.RegistryProvidersResponsePermissions{
+				Permissions: apimodels.ProvidersPermissionsResponse{
 					CanDelete: true,
 				},
 			},
