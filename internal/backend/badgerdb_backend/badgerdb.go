@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/google/uuid"
+	apimodels "go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
@@ -214,7 +215,7 @@ func (b *BadgerDBBackend) RegistryProviders(ctx context.Context, parameters regi
 	return resp, nil
 }
 
-func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+func (b *BadgerDBBackend) GPGKeysAdd(_ context.Context, request apimodels.GPGKeysRequest) (*apimodels.GPGKeysResponse, error) {
 	newUUID := uuid.New()
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
 
@@ -233,10 +234,10 @@ func (b *BadgerDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 		return nil, err
 	}
 
-	resp := &models.GPGKeyResponse{
-		Data: models.GPGKeyResponseData{
+	resp := &apimodels.GPGKeysResponse{
+		Data: apimodels.GPGKeysDataResponse{
 			ID: keyId[0],
-			Attributes: models.GPGKeyResponseAttributes{
+			Attributes: apimodels.GPGKeysAttributesResponse{
 				AsciiArmor: request.Data.Attributes.AsciiArmor,
 				KeyID:      keyId[0],
 				Namespace:  request.Data.Attributes.Namespace,

@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
+	apimodels "go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
@@ -236,7 +237,7 @@ func (d *DynamoDBBackend) RegistryProviders(ctx context.Context, parameters regi
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyRequest) (*models.GPGKeyResponse, error) {
+func (d *DynamoDBBackend) GPGKeysAdd(ctx context.Context, request apimodels.GPGKeysRequest) (*apimodels.GPGKeysResponse, error) {
 	newUUID := uuid.New()
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
 
@@ -251,10 +252,10 @@ func (d *DynamoDBBackend) GPGKey(ctx context.Context, request models.GPGKeyReque
 		return nil, err
 	}
 
-	resp := &models.GPGKeyResponse{
-		Data: models.GPGKeyResponseData{
+	resp := &apimodels.GPGKeysResponse{
+		Data: apimodels.GPGKeysDataResponse{
 			ID: newUUID.String(),
-			Attributes: models.GPGKeyResponseAttributes{
+			Attributes: apimodels.GPGKeysAttributesResponse{
 				AsciiArmor: request.Data.Attributes.AsciiArmor,
 				KeyID:      keyId[0],
 				Namespace:  request.Data.Attributes.Namespace,

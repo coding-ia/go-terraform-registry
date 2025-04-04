@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/models"
@@ -20,7 +21,6 @@ type APIController struct {
 
 type RegistryAPIController interface {
 	RegistryProviders(c *gin.Context)
-	GPGKeys(c *gin.Context)
 	RegistryProviderVersions(c *gin.Context)
 	RegistryProviderVersionPlatforms(c *gin.Context)
 }
@@ -32,13 +32,22 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 		Storage: storage,
 	}
 
-	api := r.Group("/api")
+	endpoint := r.Group("/api")
 
-	api.POST("/v2/organizations/:organization/registry-providers", ac.RegistryProviders)
-	api.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions", ac.RegistryProviderVersions)
-	api.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions/:version/platforms", ac.RegistryProviderVersionPlatforms)
+	endpoint.POST("/v2/organizations/:organization/registry-providers", ac.RegistryProviders)
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions", ac.RegistryProviderVersions)
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:ns/:name/versions/:version/platforms", ac.RegistryProviderVersionPlatforms)
 
-	api.POST("/registry/private/v2/gpg-keys", ac.GPGKeys)
+	gpgKeysAPI := api.GPGKeysAPI{
+		Config:  config,
+		Backend: backend,
+		Storage: storage,
+	}
+	endpoint.GET("/registry/:registry_name/v2/gpg-keys", gpgKeysAPI.List)
+	endpoint.POST("/registry/private/v2/gpg-keys", gpgKeysAPI.Add)
+	endpoint.GET("/registry/:registry_name/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Get)
+	endpoint.PATCH("/registry/:registry_name/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Update)
+	endpoint.DELETE("/registry/:registry_name/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
 
 	return ac
 }
@@ -63,23 +72,6 @@ func (a *APIController) RegistryProviders(c *gin.Context) {
 	}
 
 	resp, err := a.Backend.RegistryProviders(c.Request.Context(), parameters, req)
-	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, resp)
-}
-
-func (a *APIController) GPGKeys(c *gin.Context) {
-	var req models.GPGKeyRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp, err := a.Backend.GPGKey(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
