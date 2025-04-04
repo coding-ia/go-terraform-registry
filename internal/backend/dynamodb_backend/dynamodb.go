@@ -322,7 +322,7 @@ func (d *DynamoDBBackend) RegistryProviderVersionPlatforms(ctx context.Context, 
 
 	duplicate := duplicatePlatform(pv.Platform, request.Data.Attributes.OS, request.Data.Attributes.Arch)
 	if duplicate {
-		return nil, fmt.Errorf("duplicate platform exists matching OS and Architecture")
+		return nil, fmt.Errorf("duplicate platform exists matching OS: [%s] -- Architecture [%s]", request.Data.Attributes.OS, request.Data.Attributes.Arch)
 	}
 
 	newUUID := uuid.New()
