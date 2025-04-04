@@ -52,15 +52,15 @@ func init() {
 	publishProviderCmd.Flags().StringVar(&publishOptions.WorkingDir, "working-dir", "", "Provider working directory")
 	publishProviderCmd.Flags().BoolVar(&publishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
 
-	publishProviderCmd.MarkFlagRequired("endpoint")
-	publishProviderCmd.MarkFlagRequired("organization")
-	publishProviderCmd.MarkFlagRequired("name")
-	publishProviderCmd.MarkFlagRequired("namespace")
-	publishProviderCmd.MarkFlagRequired("gpg-key-id")
-	publishProviderCmd.MarkFlagRequired("version")
+	_ = publishProviderCmd.MarkFlagRequired("endpoint")
+	_ = publishProviderCmd.MarkFlagRequired("organization")
+	_ = publishProviderCmd.MarkFlagRequired("name")
+	_ = publishProviderCmd.MarkFlagRequired("namespace")
+	_ = publishProviderCmd.MarkFlagRequired("gpg-key-id")
+	_ = publishProviderCmd.MarkFlagRequired("version")
 }
 
-func publishProvider(ctx context.Context) {
+func publishProvider(_ context.Context) {
 	providerRequest := apimodels.ProvidersRequest{
 		Data: apimodels.ProvidersDataRequest{
 			Type: "registry-providers",
@@ -428,9 +428,9 @@ func parseProviderFile(name string) (string, string) {
 	trimmed := strings.TrimSuffix(name, ".zip")
 	parts := strings.Split(trimmed, "_")
 	if len(parts) >= 3 {
-		os := parts[len(parts)-2]
-		arch := parts[len(parts)-1]
-		return os, arch
+		operatingSystem := parts[len(parts)-2]
+		architecture := parts[len(parts)-1]
+		return operatingSystem, architecture
 	}
 
 	return "", ""

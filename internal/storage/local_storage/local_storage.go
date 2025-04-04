@@ -51,7 +51,7 @@ type AssetClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (l *LocalStorage) ConfigureEndpoint(ctx context.Context, routerGroup *gin.RouterGroup) {
+func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.RouterGroup) {
 	ae := &AssetEndpoint{
 		secretKey: l.secretKey,
 	}
@@ -68,7 +68,7 @@ func (l *LocalStorage) ConfigureEndpoint(ctx context.Context, routerGroup *gin.R
 	routerGroup.GET("/download/:token", ae.DownloadFile)
 }
 
-func (l *LocalStorage) ConfigureStorage(ctx context.Context) error {
+func (l *LocalStorage) ConfigureStorage(_ context.Context) error {
 	secretKey, err := generateRandomSecret(32)
 	l.secretKey = []byte(secretKey)
 
@@ -77,7 +77,7 @@ func (l *LocalStorage) ConfigureStorage(ctx context.Context) error {
 	return err
 }
 
-func (l *LocalStorage) GenerateUploadURL(ctx context.Context, path string) (string, error) {
+func (l *LocalStorage) GenerateUploadURL(_ context.Context, path string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AssetClaims{
 		Filename: path,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -95,7 +95,7 @@ func (l *LocalStorage) GenerateUploadURL(ctx context.Context, path string) (stri
 	return url, nil
 }
 
-func (l *LocalStorage) GenerateDownloadURL(ctx context.Context, path string) (string, error) {
+func (l *LocalStorage) GenerateDownloadURL(_ context.Context, path string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AssetClaims{
 		Filename: path,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -260,27 +260,36 @@ func assembleFile(directoryPath string, fileName string, totalChunks int) error 
 	}(assembledFile)
 
 	for i := 1; i <= totalChunks; i++ {
-		chunkedFileName := fmt.Sprintf("%s.part%d", fileName, i)
-		chunkedPath := filepath.Join(directoryPath, chunkedFileName)
-		chunkFile, err := os.Open(chunkedPath)
+		err := processChunk(assembledFile, fileName, directoryPath, i)
 		if err != nil {
 			return err
 		}
-		defer func(chunkFile *os.File, path string) {
-			err := chunkFile.Close()
-			if err != nil {
-				fmt.Println("Error closing file:", err)
-			}
-			err = os.Remove(path)
-			if err != nil {
-				fmt.Println("Error removing file:", err)
-			}
-		}(chunkFile, chunkedPath)
+	}
 
-		_, err = io.Copy(assembledFile, chunkFile)
+	return nil
+}
+
+func processChunk(assembledFile *os.File, fileName string, directoryPath string, chunkNumber int) error {
+	chunkedFileName := fmt.Sprintf("%s.part%d", fileName, chunkNumber)
+	chunkedPath := filepath.Join(directoryPath, chunkedFileName)
+	chunkFile, err := os.Open(chunkedPath)
+	if err != nil {
+		return err
+	}
+	defer func(chunkFile *os.File, path string) {
+		err := chunkFile.Close()
 		if err != nil {
-			return err
+			fmt.Println("Error closing file:", err)
 		}
+		err = os.Remove(path)
+		if err != nil {
+			fmt.Println("Error removing file:", err)
+		}
+	}(chunkFile, chunkedPath)
+
+	_, err = io.Copy(assembledFile, chunkFile)
+	if err != nil {
+		return err
 	}
 
 	return nil
