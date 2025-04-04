@@ -6,6 +6,12 @@ import (
 	"os"
 )
 
+type AuthenticationOptions struct {
+	Token string
+}
+
+var authenticationOptions = &AuthenticationOptions{}
+
 var rootCmd = &cobra.Command{
 	Use:   "tfrepoctl",
 	Short: "A CLI interface for go-terraform-registry",
