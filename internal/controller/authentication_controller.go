@@ -7,6 +7,7 @@ import (
 	registryconfig "go-terraform-registry/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+	"log"
 	"net/http"
 )
 
@@ -29,10 +30,13 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 	endpoint := github.Endpoint
 	if config.OauthAuthURL != "" && config.OauthTokenURL != "" {
 		endpoint = oauth2.Endpoint{
-			AuthURL:  fmt.Sprintf("%s/login/oauth/authorize", endpoint),
-			TokenURL: fmt.Sprintf("%s/login/oauth/access_token", endpoint),
+			AuthURL:  fmt.Sprintf("%s/login/oauth/authorize", config.OauthAuthURL),
+			TokenURL: fmt.Sprintf("%s/login/oauth/access_token", config.OauthTokenURL),
 		}
 	}
+
+	log.Printf("Authorization endpoint: %s", endpoint.AuthURL)
+	log.Printf("Token endpoint: %s", endpoint.TokenURL)
 
 	ac.OauthConfig = &oauth2.Config{
 		ClientID:     config.OauthClientID,
