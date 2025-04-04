@@ -41,7 +41,7 @@ func init() {
 	addCmd.Flags().StringVar(&gpgOptions.Endpoint, "endpoint", "", "Repository endpoint")
 	addCmd.Flags().StringVar(&gpgOptions.Namespace, "namespace", "", "Provider namespace")
 	addCmd.Flags().StringVar(&gpgOptions.GPGPublicKeyPath, "gpg-key-file", "", "GPG key file path")
-	addCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
+	addAuthFlag(addCmd, gpgOptions.Endpoint)
 
 	_ = addCmd.MarkFlagRequired("endpoint")
 	_ = addCmd.MarkFlagRequired("namespace")

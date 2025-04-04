@@ -52,7 +52,7 @@ func init() {
 	publishProviderCmd.Flags().StringVar(&publishOptions.Version, "version", "", "Provider version")
 	publishProviderCmd.Flags().StringVar(&publishOptions.WorkingDir, "working-dir", "", "Provider working directory")
 	publishProviderCmd.Flags().BoolVar(&publishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
-	publishProviderCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
+	addAuthFlag(publishProviderCmd, publishOptions.Endpoint)
 
 	_ = publishProviderCmd.MarkFlagRequired("endpoint")
 	_ = publishProviderCmd.MarkFlagRequired("organization")
@@ -60,7 +60,6 @@ func init() {
 	_ = publishProviderCmd.MarkFlagRequired("namespace")
 	_ = publishProviderCmd.MarkFlagRequired("gpg-key-id")
 	_ = publishProviderCmd.MarkFlagRequired("version")
-	_ = publishProviderCmd.MarkFlagRequired("auth-token")
 }
 
 func publishProvider(_ context.Context) {
