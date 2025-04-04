@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type AuthenticationOptions struct {
@@ -30,14 +31,19 @@ func getURLHost(uri string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return parsedURL.Host, nil
+	host := parsedURL.Host
+	host = strings.ReplaceAll(host, ":", "_")
+	host = strings.ReplaceAll(host, ".", "_")
+	return host, nil
 }
 
-func addAuthFlag(cmd *cobra.Command, endpoint string) {
-	host, _ := getURLHost(endpoint)
-	token := os.Getenv(fmt.Sprintf("TF_TOKEN_%s", host))
-	cmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", token, "Authorization token")
-	if token == "" {
-		_ = cmd.MarkFlagRequired("auth-token")
+func setAuthTokenFlag(cmd *cobra.Command, endpoint string) string {
+	value, _ := cmd.Flags().GetString("auth-token")
+	if value == "" {
+		host, _ := getURLHost(endpoint)
+		tfToken := os.Getenv(fmt.Sprintf("TF_TOKEN_%s", host))
+		_ = cmd.Flags().Set("auth-token", tfToken)
+		return tfToken
 	}
+	return value
 }

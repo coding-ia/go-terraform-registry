@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	apimodels "go-terraform-registry/internal/api/models"
@@ -33,6 +34,16 @@ var publishOptions = &PublishOptions{}
 var publishProviderCmd = &cobra.Command{
 	Use:   "publish-provider",
 	Short: "Publish provider to registry",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		endpoint, _ := cmd.Flags().GetString("endpoint")
+		value := setAuthTokenFlag(cmd, endpoint)
+
+		if value == "" {
+			return errors.New("required flag(s) \"auth-token\" not set")
+		}
+
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		publishProvider(cmd.Context())
 	},
@@ -52,7 +63,7 @@ func init() {
 	publishProviderCmd.Flags().StringVar(&publishOptions.Version, "version", "", "Provider version")
 	publishProviderCmd.Flags().StringVar(&publishOptions.WorkingDir, "working-dir", "", "Provider working directory")
 	publishProviderCmd.Flags().BoolVar(&publishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
-	addAuthFlag(publishProviderCmd, publishOptions.Endpoint)
+	publishProviderCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
 	_ = publishProviderCmd.MarkFlagRequired("endpoint")
 	_ = publishProviderCmd.MarkFlagRequired("organization")
