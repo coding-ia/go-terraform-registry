@@ -248,7 +248,7 @@ func (b *BadgerDBBackend) GPGKeysAdd(_ context.Context, request apimodels.GPGKey
 	return resp, nil
 }
 
-func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+func (b *BadgerDBBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 
 	var p Provider
@@ -293,11 +293,11 @@ func (b *BadgerDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionsResponse{
-		Data: models.RegistryProviderVersionsResponseData{
+	resp := &apimodels.ProviderVersionsResponse{
+		Data: apimodels.ProviderVersionsDataResponse{
 			ID:   pv.ID,
 			Type: "registry-provider-versions",
-			Attributes: models.RegistryProviderVersionsResponseAttributes{
+			Attributes: apimodels.ProviderVersionsAttributesResponse{
 				Version:   pv.Version,
 				Protocols: pv.Protocols,
 				KeyID:     pv.GPGKeyID,

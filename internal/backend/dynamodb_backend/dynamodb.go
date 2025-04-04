@@ -266,7 +266,7 @@ func (d *DynamoDBBackend) GPGKeysAdd(ctx context.Context, request apimodels.GPGK
 	return resp, nil
 }
 
-func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, parameters registrytypes.APIParameters, request models.RegistryProviderVersionsRequest) (*models.RegistryProviderVersionsResponse, error) {
+func (d *DynamoDBBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
 	if err != nil {
@@ -294,11 +294,11 @@ func (d *DynamoDBBackend) RegistryProviderVersions(ctx context.Context, paramete
 		return nil, err
 	}
 
-	resp := &models.RegistryProviderVersionsResponse{
-		Data: models.RegistryProviderVersionsResponseData{
+	resp := &apimodels.ProviderVersionsResponse{
+		Data: apimodels.ProviderVersionsDataResponse{
 			ID:   pv.ID,
 			Type: "registry-provider-versions",
-			Attributes: models.RegistryProviderVersionsResponseAttributes{
+			Attributes: apimodels.ProviderVersionsAttributesResponse{
 				Version:   pv.Version,
 				Protocols: pv.Protocols,
 				KeyID:     pv.GPGKeyID,
