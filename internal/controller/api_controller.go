@@ -15,21 +15,26 @@ type APIController struct {
 }
 
 type RegistryAPIController interface {
+	CreateEndpoints(r *gin.Engine)
 }
 
-func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend, storage storage.RegistryProviderStorage) RegistryAPIController {
+func NewAPIController(config registryconfig.RegistryConfig, backend backend.RegistryProviderBackend, storage storage.RegistryProviderStorage) RegistryAPIController {
 	ac := &APIController{
 		Config:  config,
 		Backend: backend,
 		Storage: storage,
 	}
 
+	return ac
+}
+
+func (a *APIController) CreateEndpoints(r *gin.Engine) {
 	endpoint := r.Group("/api")
 
 	providerVersionsAPI := api.ProviderVersionsAPI{
-		Config:  config,
-		Backend: backend,
-		Storage: storage,
+		Config:  a.Config,
+		Backend: a.Backend,
+		Storage: a.Storage,
 	}
 	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions", providerVersionsAPI.CreateVersion)
 	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/", providerVersionsAPI.ListVersions)
@@ -41,9 +46,9 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", providerVersionsAPI.DeletePlatform)
 
 	providersAPI := api.ProvidersAPI{
-		Config:  config,
-		Backend: backend,
-		Storage: storage,
+		Config:  a.Config,
+		Backend: a.Backend,
+		Storage: a.Storage,
 	}
 	endpoint.GET("/v2/organizations/:organization/registry-providers", providersAPI.List)
 	endpoint.POST("/v2/organizations/:organization/registry-providers", providersAPI.Create)
@@ -51,15 +56,13 @@ func NewAPIController(r *gin.Engine, config registryconfig.RegistryConfig, backe
 	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", providersAPI.Delete)
 
 	gpgKeysAPI := api.GPGKeysAPI{
-		Config:  config,
-		Backend: backend,
-		Storage: storage,
+		Config:  a.Config,
+		Backend: a.Backend,
+		Storage: a.Storage,
 	}
 	endpoint.GET("/registry/:registry/v2/gpg-keys", gpgKeysAPI.List)
 	endpoint.POST("/registry/private/v2/gpg-keys", gpgKeysAPI.Add)
 	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Get)
 	endpoint.PATCH("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Update)
 	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
-
-	return ac
 }
