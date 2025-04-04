@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	registryauth "go-terraform-registry/internal/auth"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/githubclient"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"log"
@@ -28,10 +29,10 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 	}
 
 	endpoint := github.Endpoint
-	if config.OauthAuthURL != "" && config.OauthTokenURL != "" {
+	if config.GitHubEndpoint != "" {
 		endpoint = oauth2.Endpoint{
-			AuthURL:  fmt.Sprintf("%s/login/oauth/authorize", config.OauthAuthURL),
-			TokenURL: fmt.Sprintf("%s/login/oauth/access_token", config.OauthTokenURL),
+			AuthURL:  fmt.Sprintf("%s/login/oauth/authorize", config.GitHubEndpoint),
+			TokenURL: fmt.Sprintf("%s/login/oauth/access_token", config.GitHubEndpoint),
 		}
 	}
 
@@ -88,7 +89,13 @@ func (a *AuthenticationController) AccessToken(c *gin.Context) {
 		return
 	}
 
-	userName, err := registryauth.GetGitHubUserName(c.Request.Context(), token.AccessToken)
+	client, err := githubclient.NewClient(c.Request.Context(), token.AccessToken, a.Config.GitHubEndpoint)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create GitHub client connection"})
+		return
+	}
+
+	userName, err := registryauth.GetGitHubUserName(c.Request.Context(), client, token.AccessToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get GitHub user name"})
 		return
