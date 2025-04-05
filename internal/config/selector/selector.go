@@ -5,6 +5,7 @@ import (
 	backendbase "go-terraform-registry/internal/backend"
 	badgerdbbackend "go-terraform-registry/internal/backend/badgerdb_backend"
 	dynamodbbackend "go-terraform-registry/internal/backend/dynamodb_backend"
+	sqlitebackend "go-terraform-registry/internal/backend/sqlite_backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
 	"go-terraform-registry/internal/storage/local_storage"
@@ -21,6 +22,8 @@ func SelectBackend(ctx context.Context, config config.RegistryConfig) *backendba
 		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
 	case "dynamodb":
 		selected, err = dynamodbbackend.NewDynamoDBBackend(ctx, config)
+	case "sqlite":
+		selected, err = sqlitebackend.NewSQLiteBackend(ctx, config)
 	default:
 		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
 	}
