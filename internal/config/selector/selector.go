@@ -22,7 +22,7 @@ func SelectBackend(ctx context.Context, config config.RegistryConfig) *backendba
 		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
 	case "dynamodb":
 		selected, err = dynamodbbackend.NewDynamoDBBackend(ctx, config)
-	case "sqlite3":
+	case "postgres":
 		selected, err = postgresbackend.NewPostgresBackend(ctx, config)
 	default:
 		selected, err = badgerdbbackend.NewBadgerDBBackend(ctx, config)
