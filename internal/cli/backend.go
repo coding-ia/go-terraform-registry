@@ -44,18 +44,18 @@ func init() {
 	postgresCmd.Flags().StringVar(&postgresOptions.MigrationPath, "migration-path", migrations, "Files for handling migration")
 	postgresCmd.Flags().StringVar(&postgresOptions.DatabaseURL, "database", dbUrl, "Data connection string")
 
-	if dbUrl != "" {
+	if dbUrl == "" {
 		_ = postgresCmd.MarkFlagRequired("database")
 	}
 
-	if migrations != "" {
+	if migrations == "" {
 		_ = postgresCmd.MarkFlagRequired("migrations")
 	}
 }
 
 func postgresMigrate(ctx context.Context, args []string) {
 	action := args[0]
-	
+
 	log.Printf("Running migration: %s", action)
 	log.Printf("Migration path: %s", postgresOptions.MigrationPath)
 
