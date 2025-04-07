@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -70,21 +71,25 @@ func postgresMigrate(ctx context.Context, args []string) {
 	if strings.EqualFold(action, "up") {
 		err = m.Up()
 		if err != nil {
+			if errors.Is(err, migrate.ErrNoChange) {
+				log.Println("No migrations to run — DB schema is up to date.")
+				return
+			}
 			log.Fatalf("Migration failed: %v", err)
 		}
 
 		log.Println("Migration succeeded")
-		os.Exit(0)
+		return
 	}
 
 	if strings.EqualFold(action, "down") {
 		err = m.Down()
 		if err != nil {
-			log.Printf("Downgrade failed: %v\n", err)
+			log.Fatalf("Downgrade failed: %v\n", err)
 		}
 
 		fmt.Println("Downgrade succeeded")
-		os.Exit(0)
+		return
 	}
 }
 
