@@ -6,10 +6,12 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type PostgresOptions struct {
@@ -51,9 +53,13 @@ func init() {
 	}
 }
 
-func postgresMigrate(_ context.Context, args []string) {
+func postgresMigrate(ctx context.Context, args []string) {
 	action := args[0]
-	fmt.Printf("Running migration: %s\n", action)
+	
+	log.Printf("Running migration: %s", action)
+	log.Printf("Migration path: %s", postgresOptions.MigrationPath)
+
+	waitForPostgres(ctx, postgresOptions.DatabaseURL, 20)
 
 	filePath := fmt.Sprintf("file://%s", postgresOptions.MigrationPath)
 	m, err := migrate.New(filePath, postgresOptions.DatabaseURL)
@@ -67,7 +73,7 @@ func postgresMigrate(_ context.Context, args []string) {
 			log.Fatalf("Migration failed: %v", err)
 		}
 
-		fmt.Println("Migration succeeded")
+		log.Println("Migration succeeded")
 		return
 	}
 
@@ -80,4 +86,31 @@ func postgresMigrate(_ context.Context, args []string) {
 		fmt.Println("Downgrade succeeded")
 		return
 	}
+}
+
+func waitForPostgres(ctx context.Context, connectionString string, maxRetries int) {
+	for i := 0; i < maxRetries; i++ {
+		available := testConnection(ctx, connectionString)
+		if available {
+			return
+		}
+		log.Printf("Waiting for PostgreSQL... (%d/%d)\n", i+1, maxRetries)
+		time.Sleep(3 * time.Second)
+	}
+
+	log.Println("PostgreSQL not ready after max retries.")
+	os.Exit(1)
+}
+
+func testConnection(ctx context.Context, connectionString string) bool {
+	conn, err := pgx.Connect(ctx, connectionString)
+	defer func() {
+		if conn != nil {
+			_ = conn.Close(ctx)
+		}
+	}()
+	if err == nil {
+		return true
+	}
+	return false
 }
