@@ -38,13 +38,12 @@ func getURLHost(uri string) (string, error) {
 	return host, nil
 }
 
-func setAuthTokenFlag(cmd *cobra.Command, endpoint string) string {
-	value, _ := cmd.Flags().GetString("auth-token")
-	if value == "" {
+func setAuthTokenFromEnv(endpoint string) bool {
+	if authenticationOptions.Token == "" {
 		host, _ := getURLHost(endpoint)
 		tfToken := os.Getenv(fmt.Sprintf("TF_TOKEN_%s", host))
-		_ = cmd.Flags().Set("auth-token", tfToken)
-		return tfToken
+		authenticationOptions.Token = tfToken
+		return true
 	}
-	return value
+	return false
 }

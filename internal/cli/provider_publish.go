@@ -35,12 +35,9 @@ var publishProviderCmd = &cobra.Command{
 	Short: "Publish provider to registry",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		endpoint, _ := cmd.Flags().GetString("endpoint")
-		value := setAuthTokenFlag(cmd, endpoint)
-
-		if value == "" {
+		if !setAuthTokenFromEnv(endpoint) {
 			return errors.New("required flag(s) \"auth-token\" not set")
 		}
-
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
