@@ -24,6 +24,7 @@ type RegistryBackend interface {
 
 type ProvidersBackend interface {
 	ProvidersCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error)
+	ProvidersGet(ctx context.Context, parameters registrytypes.APIParameters) (*apimodels.ProvidersResponse, error)
 }
 
 type ProviderVersionsBackend interface {

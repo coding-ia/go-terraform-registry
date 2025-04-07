@@ -2,6 +2,7 @@ package postgres_backend
 
 import (
 	"context"
+	"fmt"
 	"go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	registrytypes "go-terraform-registry/internal/types"
@@ -22,12 +23,31 @@ func (p *PostgresBackend) ProvidersCreate(ctx context.Context, parameters regist
 		return nil, err
 	}
 
-	if provider.ID == "" {
-		existingProvider, err := providersSelect(ctx, p.db, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
-		if err != nil {
-			return nil, err
-		}
-		provider.ID = existingProvider.ID
+	resp := &models.ProvidersResponse{
+		Data: models.ProvidersDataResponse{
+			ID:   provider.ID,
+			Type: "registry-providers",
+			Attributes: models.ProvidersAttributesResponse{
+				Name:         provider.Name,
+				Namespace:    provider.Namespace,
+				RegistryName: provider.RegistryName,
+				Permissions: models.ProvidersPermissionsResponse{
+					CanDelete: true,
+				},
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+func (p *PostgresBackend) ProvidersGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProvidersResponse, error) {
+	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, fmt.Errorf("provider not found")
 	}
 
 	resp := &models.ProvidersResponse{
@@ -35,9 +55,9 @@ func (p *PostgresBackend) ProvidersCreate(ctx context.Context, parameters regist
 			ID:   provider.ID,
 			Type: "registry-providers",
 			Attributes: models.ProvidersAttributesResponse{
-				Name:         request.Data.Attributes.Name,
-				Namespace:    request.Data.Attributes.Namespace,
-				RegistryName: request.Data.Attributes.RegistryName,
+				Name:         provider.Name,
+				Namespace:    provider.Namespace,
+				RegistryName: provider.RegistryName,
 				Permissions: models.ProvidersPermissionsResponse{
 					CanDelete: true,
 				},
