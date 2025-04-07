@@ -81,7 +81,7 @@ CREATE VIEW registry_provider_release AS
     g.key_id,
 	g.ascii_armor,
     (pv.metadata -> 'protocols')::json AS protocols,
-    JSON_AGG(JSON_BUILD_OBJECT('os', pvp.os, 'arch', pvp.arch)) AS platforms
+    JSON_AGG(JSON_BUILD_OBJECT('os', pvp.os, 'arch', pvp.arch, 'shasum', pvp.shasum, 'filename', pvp.filename)) AS platforms
   FROM providers p
   JOIN provider_versions pv ON p.provider_id = pv.provider_id
   JOIN gpg_keys g ON pv.gpgkey_id = g.gpgkey_id

@@ -34,6 +34,7 @@ func getURLHost(uri string) (string, error) {
 	host := parsedURL.Host
 	host = strings.ReplaceAll(host, ":", "_")
 	host = strings.ReplaceAll(host, ".", "_")
+	host = strings.ReplaceAll(host, "-", "_")
 	return host, nil
 }
 
