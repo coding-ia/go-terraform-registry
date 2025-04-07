@@ -74,7 +74,7 @@ func postgresMigrate(ctx context.Context, args []string) {
 		}
 
 		log.Println("Migration succeeded")
-		return
+		os.Exit(0)
 	}
 
 	if strings.EqualFold(action, "down") {
@@ -84,7 +84,7 @@ func postgresMigrate(ctx context.Context, args []string) {
 		}
 
 		fmt.Println("Downgrade succeeded")
-		return
+		os.Exit(0)
 	}
 }
 
