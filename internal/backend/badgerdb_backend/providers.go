@@ -17,7 +17,7 @@ func (b *BadgerDBBackend) ProvidersCreate(ctx context.Context, parameters regist
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, request.Data.Attributes.RegistryName, request.Data.Attributes.Namespace, request.Data.Attributes.Name)
 	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
 		err := providerGet(db, key, &p)
-		if err != nil {
+		if err != nil && err.Error() != "provider not found" {
 			return err
 		}
 
@@ -40,6 +40,35 @@ func (b *BadgerDBBackend) ProvidersCreate(ctx context.Context, parameters regist
 				Name:         request.Data.Attributes.Name,
 				Namespace:    request.Data.Attributes.Namespace,
 				RegistryName: request.Data.Attributes.RegistryName,
+				Permissions: models.ProvidersPermissionsResponse{
+					CanDelete: true,
+				},
+			},
+		},
+	}
+
+	return resp, nil
+}
+
+func (b *BadgerDBBackend) ProvidersGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProvidersResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.ProvidersResponse{
+		Data: models.ProvidersDataResponse{
+			ID:   p.ID,
+			Type: "registry-providers",
+			Attributes: models.ProvidersAttributesResponse{
+				Name:         parameters.Name,
+				Namespace:    parameters.Namespace,
+				RegistryName: parameters.Registry,
 				Permissions: models.ProvidersPermissionsResponse{
 					CanDelete: true,
 				},

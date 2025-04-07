@@ -73,7 +73,7 @@ func gpgAdd(_ context.Context) {
 		},
 	}
 
-	gpgKeyResponse, err := CreateGPGRequest(client, gpgOptions.Endpoint, gpgKeyRequest)
+	gpgKeyResponse, _, err := CreateGPGRequest(client, gpgOptions.Endpoint, gpgKeyRequest)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -83,17 +83,17 @@ func gpgAdd(_ context.Context) {
 	fmt.Println(fmt.Sprintf("KEY ID: %s", gpgKeyResponse.Data.Attributes.KeyID))
 }
 
-func CreateGPGRequest(client *api_client.APIClient, endpoint string, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
+func CreateGPGRequest(client *api_client.APIClient, endpoint string, request models.GPGKeysRequest) (*models.GPGKeysResponse, int, error) {
 	apiEndpoint := "/api/registry/private/v2/gpg-keys"
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	var response models.GPGKeysResponse
-	err := client.SendRequest("POST", url, request, &response)
+	statusCode, err := client.PostRequest(url, request, &response)
 	if err != nil {
-		return nil, err
+		return nil, statusCode, err
 	}
 
-	return &response, nil
+	return &response, statusCode, nil
 }
 
 func readFileContents(filePath string) (string, error) {

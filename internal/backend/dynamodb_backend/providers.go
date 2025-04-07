@@ -43,3 +43,7 @@ func (d *DynamoDBBackend) ProvidersCreate(ctx context.Context, parameters regist
 
 	return resp, nil
 }
+
+func (d *DynamoDBBackend) ProvidersGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProvidersResponse, error) {
+	return nil, nil
+}

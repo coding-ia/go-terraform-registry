@@ -3,6 +3,7 @@ package badgerdb_backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/dgraph-io/badger/v4"
 	"log"
 	"strings"
@@ -38,7 +39,7 @@ func providerGet(db *badger.DB, key string, value *Provider) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			if errors.Is(err, badger.ErrKeyNotFound) {
-				return nil
+				return fmt.Errorf("provider not found")
 			}
 			return err
 		}

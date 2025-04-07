@@ -31,9 +31,16 @@ func gpgInsert(ctx context.Context, db *pgxpool.Pool, value GPGKey) error {
 		query := `
 			INSERT INTO gpg_keys (ascii_armor, key_id, namespace)
 			VALUES ($1, $2, $3)
-			ON CONFLICT (key_id, namespace) DO NOTHING;
 	`
 		_, err := tx.Exec(ctx, query, value.AsciiArmor, value.KeyID, value.Namespace)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_keyid_namespace" {
+					return fmt.Errorf("gpg key already exists")
+				}
+			}
+		}
 		return err
 	})
 }
@@ -69,12 +76,16 @@ func providersInsert(ctx context.Context, db *pgxpool.Pool, value *Provider) err
 		query := `
 			INSERT INTO providers (name, namespace, organization, registry)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (name, namespace, organization, registry) DO NOTHING
 			RETURNING provider_id;
 	`
 		err := tx.QueryRow(ctx, query, value.Name, value.Namespace, value.Organization, value.RegistryName).Scan(&value.ID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_provider_identity" {
+					return fmt.Errorf("provider already exists")
+				}
+			}
 		}
 		return err
 	})

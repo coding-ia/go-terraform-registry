@@ -86,10 +86,19 @@ func publishProvider(_ context.Context) {
 		},
 	}
 
-	_, err := CreateProviderRequest(client, publishOptions.Endpoint, providerRequest)
-	if err != nil {
-		fmt.Println(err)
+	p, statusCode, err := GetProviderRequest(client, publishOptions.Endpoint)
+	if err != nil && statusCode != http.StatusNotFound {
+		fmt.Println(fmt.Errorf("error getting provider request [%d]: %w", statusCode, err))
 		return
+	}
+
+	if p == nil {
+		fmt.Println(fmt.Sprintf("Creating provider %s\\%s", publishOptions.Namespace, publishOptions.Name))
+		_, _, err = CreateProviderRequest(client, publishOptions.Endpoint, providerRequest)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 
 	providerVersionsRequest := apimodels.ProviderVersionsRequest{
@@ -103,9 +112,9 @@ func publishProvider(_ context.Context) {
 		},
 	}
 
-	providerVersionsResponse, err := CreateProviderVersionRequest(client, publishOptions.Endpoint, providerVersionsRequest)
+	providerVersionsResponse, _, err := CreateProviderVersionRequest(client, publishOptions.Endpoint, providerVersionsRequest)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(fmt.Errorf("error getting provider version request [%d]: %w", statusCode, err))
 		return
 	}
 
@@ -159,7 +168,7 @@ func publishProvider(_ context.Context) {
 				},
 			}
 
-			platformResponse, err := CreateProviderVersionPlatformsRequest(client, publishOptions.Endpoint, platformRequest)
+			platformResponse, _, err := CreateProviderVersionPlatformsRequest(client, publishOptions.Endpoint, platformRequest)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -181,43 +190,56 @@ func publishProvider(_ context.Context) {
 	}
 }
 
-func CreateProviderRequest(client *api_client.APIClient, endpoint string, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
+func GetProviderRequest(client *api_client.APIClient, endpoint string) (*apimodels.ProvidersResponse, int, error) {
+	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name)
+	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
+
+	var response apimodels.ProvidersResponse
+	statusCode, err := client.GetRequest(url, &response)
+	if err != nil {
+		return nil, statusCode, err
+	}
+
+	return &response, statusCode, nil
+}
+
+func CreateProviderRequest(client *api_client.APIClient, endpoint string, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, int, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers", publishOptions.Organization)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	var response apimodels.ProvidersResponse
-	err := client.SendRequest("POST", url, request, &response)
+	statusCode, err := client.PostRequest(url, request, &response)
 	if err != nil {
-		return nil, err
+		return nil, statusCode, err
 	}
 
-	return &response, nil
+	return &response, statusCode, nil
 }
 
-func CreateProviderVersionRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
+func CreateProviderVersionRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, int, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	var response apimodels.ProviderVersionsResponse
-	err := client.SendRequest("POST", url, request, &response)
+	statusCode, err := client.PostRequest(url, request, &response)
 	if err != nil {
-		return nil, err
+		return nil, statusCode, err
 	}
 
-	return &response, nil
+	return &response, statusCode, nil
 }
 
-func CreateProviderVersionPlatformsRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
+func CreateProviderVersionPlatformsRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, int, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s/platforms", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name, publishOptions.Version)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	var response apimodels.ProviderVersionPlatformsResponse
-	err := client.SendRequest("POST", url, request, &response)
+	statusCode, err := client.PostRequest(url, request, &response)
 	if err != nil {
-		return nil, err
+		return nil, statusCode, err
 	}
 
-	return &response, nil
+	return &response, statusCode, nil
 }
 
 func uploadFile(filePath, url string) error {
