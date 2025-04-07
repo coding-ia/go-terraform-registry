@@ -13,6 +13,8 @@ import (
 	"log"
 )
 
+var _ backend.BackendLifecycle = &DynamoDBBackend{}
+
 type DynamoDBBackend struct {
 	Config config.RegistryConfig
 	Tables DynamoTables
@@ -32,11 +34,6 @@ func NewDynamoDBBackend(ctx context.Context, config config.RegistryConfig) (*bac
 		Config: config,
 	}
 
-	err := configureBackend(ctx, b)
-	if err != nil {
-		return nil, err
-	}
-
 	return &backend.Backend{
 		RegistryBackend:         b,
 		ProvidersBackend:        b,
@@ -45,26 +42,30 @@ func NewDynamoDBBackend(ctx context.Context, config config.RegistryConfig) (*bac
 	}, nil
 }
 
-func configureBackend(ctx context.Context, dynamoDBBackend *DynamoDBBackend) error {
-	dynamoDBBackend.Tables.GPGTableName = "terraform_gpg_keys"
-	dynamoDBBackend.Tables.ProviderTableName = "terraform_providers"
-	dynamoDBBackend.Tables.ProviderVersionTableName = "terraform_providers_versions"
-	dynamoDBBackend.Tables.ModuleTableName = "terraform_modules"
+func (d *DynamoDBBackend) Configure(ctx context.Context) error {
+	d.Tables.GPGTableName = "terraform_gpg_keys"
+	d.Tables.ProviderTableName = "terraform_providers"
+	d.Tables.ProviderVersionTableName = "terraform_providers_versions"
+	d.Tables.ModuleTableName = "terraform_modules"
 
 	cfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to load SDK config, %v", err)
 	}
 
-	if dynamoDBBackend.Config.AssumeRoleARN != "" {
+	if d.Config.AssumeRoleARN != "" {
 		stsClient := sts.NewFromConfig(cfg)
-		credentials := stscreds.NewAssumeRoleProvider(stsClient, dynamoDBBackend.Config.AssumeRoleARN)
+		credentials := stscreds.NewAssumeRoleProvider(stsClient, d.Config.AssumeRoleARN)
 		cfg.Credentials = aws.NewCredentialsCache(credentials)
 	}
 
-	dynamoDBBackend.client = dynamodb.NewFromConfig(cfg)
+	d.client = dynamodb.NewFromConfig(cfg)
 
 	log.Println("Using DynamoDB for backend.")
 
+	return nil
+}
+
+func (d *DynamoDBBackend) Close(ctx context.Context) error {
 	return nil
 }

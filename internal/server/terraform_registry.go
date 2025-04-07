@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-gonic/gin"
+	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/config/selector"
 	"go-terraform-registry/internal/controller"
@@ -32,6 +33,17 @@ func StartServer(version string) {
 	// Get configuration and select backend
 	c := config.GetRegistryConfig()
 	b := selector.SelectBackend(ctx, c)
+
+	err := b.Configure(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func(b *backend.Backend, ctx context.Context) {
+		err := b.Close(ctx)
+		if err != nil {
+			log.Println(err)
+		}
+	}(b, ctx)
 
 	// Configure storage
 	s := selector.SelectStorage(ctx, c)

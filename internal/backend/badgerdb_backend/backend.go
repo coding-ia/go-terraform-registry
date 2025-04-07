@@ -8,6 +8,8 @@ import (
 	"os"
 )
 
+var _ backend.BackendLifecycle = &BadgerDBBackend{}
+
 type BadgerDBBackend struct {
 	Config config.RegistryConfig
 	DBPath string
@@ -26,9 +28,8 @@ func NewBadgerDBBackend(_ context.Context, config config.RegistryConfig) (*backe
 		Config: config,
 	}
 
-	configureBackend(b)
-
 	return &backend.Backend{
+		BackendLifecycle:        b,
 		RegistryBackend:         b,
 		ProvidersBackend:        b,
 		ProviderVersionsBackend: b,
@@ -36,17 +37,23 @@ func NewBadgerDBBackend(_ context.Context, config config.RegistryConfig) (*backe
 	}, nil
 }
 
-func configureBackend(badgerDBBackend *BadgerDBBackend) {
-	badgerDBBackend.DBPath = "registry_db"
-	badgerDBBackend.Tables.GPGTableName = "gpg"
-	badgerDBBackend.Tables.ProviderTableName = "providers"
-	badgerDBBackend.Tables.ProviderVersionTableName = "provider-version"
-	badgerDBBackend.Tables.ModuleTableName = "modules"
+func (b *BadgerDBBackend) Configure(ctx context.Context) error {
+	b.DBPath = "registry_db"
+	b.Tables.GPGTableName = "gpg"
+	b.Tables.ProviderTableName = "providers"
+	b.Tables.ProviderVersionTableName = "provider-version"
+	b.Tables.ModuleTableName = "modules"
 
 	val, ok := os.LookupEnv("BADGER_DB_PATH")
 	if ok {
-		badgerDBBackend.DBPath = val
+		b.DBPath = val
 	}
 
 	log.Println("Using BadgerDB for backend.")
+
+	return nil
+}
+
+func (b *BadgerDBBackend) Close(ctx context.Context) error {
+	return nil
 }

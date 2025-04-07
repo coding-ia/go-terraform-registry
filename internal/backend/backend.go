@@ -8,6 +8,7 @@ import (
 )
 
 type Backend struct {
+	BackendLifecycle
 	RegistryBackend
 	ProvidersBackend
 	ProviderVersionsBackend
@@ -32,4 +33,9 @@ type ProviderVersionsBackend interface {
 
 type GPGKeysBackend interface {
 	GPGKeysAdd(ctx context.Context, request apimodels.GPGKeysRequest) (*apimodels.GPGKeysResponse, error)
+}
+
+type BackendLifecycle interface {
+	Configure(ctx context.Context) error
+	Close(ctx context.Context) error
 }
