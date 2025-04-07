@@ -4,13 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	apimodels "go-terraform-registry/internal/api/models"
+	"go-terraform-registry/internal/client/api_client"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -74,6 +73,8 @@ func init() {
 }
 
 func publishProvider(_ context.Context) {
+	client := api_client.NewAPIClient(authenticationOptions.Token)
+
 	providerRequest := apimodels.ProvidersRequest{
 		Data: apimodels.ProvidersDataRequest{
 			Type: "registry-providers",
@@ -85,7 +86,7 @@ func publishProvider(_ context.Context) {
 		},
 	}
 
-	_, err := CreateProviderRequest(publishOptions.Endpoint, providerRequest)
+	_, err := CreateProviderRequest(client, publishOptions.Endpoint, providerRequest)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -102,7 +103,7 @@ func publishProvider(_ context.Context) {
 		},
 	}
 
-	providerVersionsResponse, err := CreateProviderVersionRequest(publishOptions.Endpoint, providerVersionsRequest)
+	providerVersionsResponse, err := CreateProviderVersionRequest(client, publishOptions.Endpoint, providerVersionsRequest)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -158,7 +159,7 @@ func publishProvider(_ context.Context) {
 				},
 			}
 
-			platformResponse, err := CreateProviderVersionPlatformsRequest(publishOptions.Endpoint, platformRequest)
+			platformResponse, err := CreateProviderVersionPlatformsRequest(client, publishOptions.Endpoint, platformRequest)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -180,142 +181,43 @@ func publishProvider(_ context.Context) {
 	}
 }
 
-func CreateProviderRequest(endpoint string, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		fmt.Println("Error encoding JSON:", err)
-		os.Exit(1)
-	}
-
+func CreateProviderRequest(client *api_client.APIClient, endpoint string, request apimodels.ProvidersRequest) (*apimodels.ProvidersResponse, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers", publishOptions.Organization)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error making POST request: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println("Error closing body:", err)
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
+	var response apimodels.ProvidersResponse
+	err := client.SendRequest("POST", url, request, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusCreated {
-		var response apimodels.ProvidersResponse
-		err := json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, err
-		}
-		return &response, nil
-	}
-
-	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
+	return &response, nil
 }
 
-func CreateProviderVersionRequest(endpoint string, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		fmt.Println("Error encoding JSON:", err)
-		os.Exit(1)
-	}
-
+func CreateProviderVersionRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error making POST request: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println("Error closing body:", err)
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
+	var response apimodels.ProviderVersionsResponse
+	err := client.SendRequest("POST", url, request, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusCreated {
-		var response apimodels.ProviderVersionsResponse
-		err := json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, err
-		}
-		return &response, nil
-	}
-
-	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
+	return &response, nil
 }
 
-func CreateProviderVersionPlatformsRequest(endpoint string, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		fmt.Println("Error encoding JSON:", err)
-		os.Exit(1)
-	}
-
+func CreateProviderVersionPlatformsRequest(client *api_client.APIClient, endpoint string, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error) {
 	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s/platforms", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name, publishOptions.Version)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error making POST request: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println("Error closing body:", err)
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
+	var response apimodels.ProviderVersionPlatformsResponse
+	err := client.SendRequest("POST", url, request, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusCreated {
-		var response apimodels.ProviderVersionPlatformsResponse
-		err := json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, err
-		}
-		return &response, nil
-	}
-
-	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
+	return &response, nil
 }
 
 func uploadFile(filePath, url string) error {
