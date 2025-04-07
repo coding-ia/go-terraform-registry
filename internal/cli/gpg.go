@@ -1,16 +1,12 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	"go-terraform-registry/internal/api/models"
-	"io"
-	"log"
-	"net/http"
+	"go-terraform-registry/internal/client/api_client"
 	"os"
 )
 
@@ -60,6 +56,7 @@ func init() {
 }
 
 func gpgAdd(_ context.Context) {
+	client := api_client.NewAPIClient(authenticationOptions.Token)
 	gpgKey, err := readFileContents(gpgOptions.GPGPublicKeyPath)
 	if err != nil {
 		fmt.Println(err)
@@ -76,7 +73,7 @@ func gpgAdd(_ context.Context) {
 		},
 	}
 
-	gpgKeyResponse, err := CreateGPGRequest(gpgOptions.Endpoint, gpgKeyRequest)
+	gpgKeyResponse, err := CreateGPGRequest(client, gpgOptions.Endpoint, gpgKeyRequest)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -86,50 +83,17 @@ func gpgAdd(_ context.Context) {
 	fmt.Println(fmt.Sprintf("KEY ID: %s", gpgKeyResponse.Data.Attributes.KeyID))
 }
 
-func CreateGPGRequest(endpoint string, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		fmt.Println("Error encoding JSON:", err)
-		os.Exit(1)
-	}
-
+func CreateGPGRequest(client *api_client.APIClient, endpoint string, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
 	apiEndpoint := "/api/registry/private/v2/gpg-keys"
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authenticationOptions.Token))
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error making POST request: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println("Error closing body:", err)
-		}
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
+	var response models.GPGKeysResponse
+	err := client.SendRequest("POST", url, request, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == http.StatusCreated {
-		var response models.GPGKeysResponse
-		err := json.Unmarshal(body, &response)
-		if err != nil {
-			return nil, err
-		}
-		return &response, nil
-	}
-
-	return nil, fmt.Errorf("Request failed with status %d:\n%s\n", resp.StatusCode, string(body))
+	return &response, nil
 }
 
 func readFileContents(filePath string) (string, error) {
