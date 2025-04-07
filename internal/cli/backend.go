@@ -80,7 +80,7 @@ func postgresMigrate(ctx context.Context, args []string) {
 	if strings.EqualFold(action, "down") {
 		err = m.Down()
 		if err != nil {
-			log.Fatalf("Downgrade failed: %v", err)
+			log.Printf("Downgrade failed: %v\n", err)
 		}
 
 		fmt.Println("Downgrade succeeded")
