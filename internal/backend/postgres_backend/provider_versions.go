@@ -56,6 +56,38 @@ func (p *PostgresBackend) ProviderVersionsCreate(ctx context.Context, parameters
 	return resp, nil
 }
 
+func (p *PostgresBackend) ProviderVersionsGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsResponse, error) {
+	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, fmt.Errorf("no provider found for version")
+	}
+
+	providerVersion, err := providerVersionSelect(ctx, p.db, provider.ID, parameters.Version)
+	if err != nil {
+		return nil, err
+	}
+	if providerVersion == nil {
+		return nil, fmt.Errorf("provider version not found")
+	}
+
+	resp := &models.ProviderVersionsResponse{
+		Data: models.ProviderVersionsDataResponse{
+			ID:   providerVersion.ID,
+			Type: "registry-provider-versions",
+			Attributes: models.ProviderVersionsAttributesResponse{
+				Version:   providerVersion.Version,
+				Protocols: providerVersion.MetaData.Protocols,
+				KeyID:     providerVersion.GPGKeyID,
+			},
+		},
+	}
+
+	return resp, nil
+}
+
 func (p *PostgresBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionPlatformsRequest) (*models.ProviderVersionPlatformsResponse, error) {
 	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	if err != nil {

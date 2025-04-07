@@ -54,6 +54,10 @@ func (d *DynamoDBBackend) ProviderVersionsCreate(ctx context.Context, parameters
 	return resp, nil
 }
 
+func (d *DynamoDBBackend) ProviderVersionsGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsResponse, error) {
+	return nil, nil
+}
+
 func (d *DynamoDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionPlatformsRequest) (*models.ProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
