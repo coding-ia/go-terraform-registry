@@ -32,7 +32,7 @@ func init() {
 	rootCmd.AddCommand(tokenCmd)
 	tokenCmd.AddCommand(generateCmd)
 
-	tokenKey := os.Getenv("")
+	tokenKey := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	generateCmd.Flags().StringVar(&tokenOptions.Key, "key", tokenKey, "Token encryption key")
 	generateCmd.Flags().StringVar(&tokenOptions.User, "user", "", "User name")
 
