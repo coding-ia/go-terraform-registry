@@ -51,7 +51,7 @@ var publishProviderCmd = &cobra.Command{
 const chunkSize = 1024 * 1024 // 1MB
 
 func init() {
-	rootCmd.AddCommand(publishProviderCmd)
+	providerCmd.AddCommand(publishProviderCmd)
 
 	publishProviderCmd.Flags().StringVar(&publishOptions.Endpoint, "endpoint", "", "Repository endpoint")
 	publishProviderCmd.Flags().StringVar(&publishOptions.Organization, "organization", "", "Repository organization")
