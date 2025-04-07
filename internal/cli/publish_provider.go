@@ -112,7 +112,17 @@ func publishProvider(_ context.Context) {
 		},
 	}
 
-	providerVersionsResponse, _, err := CreateProviderVersionRequest(client, publishOptions.Endpoint, providerVersionsRequest)
+	pv, statusCode, err := GetProviderVersionRequest(client, publishOptions.Endpoint)
+	if err != nil && statusCode != http.StatusNotFound {
+		fmt.Println(fmt.Errorf("error getting provider request [%d]: %w", statusCode, err))
+		return
+	}
+	if pv != nil {
+		fmt.Println(fmt.Sprintf("Provider version %s [%s\\%s] already exists", publishOptions.Version, publishOptions.Namespace, publishOptions.Name))
+		return
+	}
+
+	providerVersionsResponse, statusCode, err := CreateProviderVersionRequest(client, publishOptions.Endpoint, providerVersionsRequest)
 	if err != nil {
 		fmt.Println(fmt.Errorf("error getting provider version request [%d]: %w", statusCode, err))
 		return
@@ -209,6 +219,19 @@ func CreateProviderRequest(client *api_client.APIClient, endpoint string, reques
 
 	var response apimodels.ProvidersResponse
 	statusCode, err := client.PostRequest(url, request, &response)
+	if err != nil {
+		return nil, statusCode, err
+	}
+
+	return &response, statusCode, nil
+}
+
+func GetProviderVersionRequest(client *api_client.APIClient, endpoint string) (*apimodels.ProviderVersionsResponse, int, error) {
+	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s", publishOptions.Organization, publishOptions.RepositoryName, publishOptions.Namespace, publishOptions.Name, publishOptions.Version)
+	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
+
+	var response apimodels.ProviderVersionsResponse
+	statusCode, err := client.GetRequest(url, &response)
 	if err != nil {
 		return nil, statusCode, err
 	}

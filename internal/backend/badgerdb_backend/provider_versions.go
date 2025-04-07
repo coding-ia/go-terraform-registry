@@ -72,6 +72,41 @@ func (b *BadgerDBBackend) ProviderVersionsCreate(ctx context.Context, parameters
 	return resp, nil
 }
 
+func (b *BadgerDBBackend) ProviderVersionsGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsResponse, error) {
+	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+
+	var p Provider
+	err := withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerGet(db, key, &p)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pvKey := fmt.Sprintf("%s:%s:%s", b.Tables.ProviderVersionTableName, p.ID, parameters.Version)
+	var pv ProviderVersion
+	err = withBadgerDB(b.DBPath, func(db *badger.DB) error {
+		return providerVersionGet(db, pvKey, &pv)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.ProviderVersionsResponse{
+		Data: models.ProviderVersionsDataResponse{
+			ID:   pv.ID,
+			Type: "registry-provider-versions",
+			Attributes: models.ProviderVersionsAttributesResponse{
+				Version:   pv.Version,
+				Protocols: pv.Protocols,
+				KeyID:     pv.GPGKeyID,
+			},
+		},
+	}
+
+	return resp, nil
+}
+
 func (b *BadgerDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionPlatformsRequest) (*models.ProviderVersionPlatformsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 

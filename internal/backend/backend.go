@@ -29,6 +29,7 @@ type ProvidersBackend interface {
 
 type ProviderVersionsBackend interface {
 	ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionsRequest) (*apimodels.ProviderVersionsResponse, error)
+	ProviderVersionsGet(ctx context.Context, parameters registrytypes.APIParameters) (*apimodels.ProviderVersionsResponse, error)
 	ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ProviderVersionPlatformsRequest) (*apimodels.ProviderVersionPlatformsResponse, error)
 }
 
