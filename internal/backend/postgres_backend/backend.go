@@ -3,6 +3,7 @@ package postgres_backend
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
@@ -33,8 +34,14 @@ func NewPostgresBackend(_ context.Context, config config.RegistryConfig) (*backe
 
 func (p *PostgresBackend) Configure(ctx context.Context) error {
 	connectionString := os.Getenv("DATABASE_URL")
+	pgxConfig, err := pgxpool.ParseConfig(connectionString)
 
-	db, err := pgxpool.New(ctx, connectionString)
+	// Future use for refreshing credentials (IAM)
+	pgxConfig.BeforeConnect = func(ctx context.Context, connCfg *pgx.ConnConfig) error {
+		return nil
+	}
+
+	db, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}
