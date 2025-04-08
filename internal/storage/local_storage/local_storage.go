@@ -66,7 +66,7 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
 
 	routerGroup.PUT("/upload/:token", ae.UploadFile)
-	routerGroup.GET("/download/:token", ae.DownloadFile)
+	routerGroup.GET("/download/:token/:file", ae.DownloadFile)
 }
 
 func (l *LocalStorage) ConfigureStorage(_ context.Context) error {
@@ -145,7 +145,14 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	convertedPath := filepath.FromSlash(claims.Filename)
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
 	fileName := path.Base(joinedPath)
-	
+
+	_, err = os.Stat(joinedPath)
+	if err != nil {
+		log.Printf("File not found: %s", joinedPath)
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
 	c.FileAttachment(joinedPath, fileName)
 }
 
