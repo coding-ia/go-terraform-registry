@@ -66,7 +66,7 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
 
 	routerGroup.PUT("/upload/:token", ae.UploadFile)
-	routerGroup.GET("/download/:token/:file", ae.DownloadFile)
+	routerGroup.GET("/download/:token", ae.DownloadFile)
 }
 
 func (l *LocalStorage) ConfigureStorage(_ context.Context) error {
@@ -127,7 +127,6 @@ func (a *AssetEndpoint) UploadFile(c *gin.Context) {
 
 func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	tokenString := c.Param("token")
-	fileName := c.Param("file")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.secretKey, nil
@@ -145,6 +144,7 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 
 	convertedPath := filepath.FromSlash(claims.Filename)
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
+	fileName := path.Base(joinedPath)
 	
 	c.FileAttachment(joinedPath, fileName)
 }
