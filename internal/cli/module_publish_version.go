@@ -20,6 +20,7 @@ type ModuleVersionPublishOptions struct {
 	Version      string
 	CommitSHA    string
 	File         string
+	ChunkUpload  bool
 }
 
 var moduleVersionPublishOptions = &ModuleVersionPublishOptions{}
@@ -53,6 +54,7 @@ func init() {
 	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Version, "version", "", "Module version")
 	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.CommitSHA, "commit-sha", "", "Module commit SHA")
 	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.File, "archive-file", "", "Module archive file [tar.gz]")
+	publicModuleVersionCmd.Flags().BoolVar(&moduleVersionPublishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
 	publicModuleVersionCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
 	_ = publicModuleVersionCmd.MarkFlagRequired("endpoint")
@@ -98,7 +100,11 @@ func publishModuleVersion(_ context.Context) {
 	}
 
 	if statusCode == http.StatusCreated {
-		err = uploadFile(moduleVersionPublishOptions.File, v.Data.Links.Upload)
+		if !moduleVersionPublishOptions.ChunkUpload {
+			err = uploadFile(moduleVersionPublishOptions.File, v.Data.Links.Upload)
+		} else {
+			err = uploadFileChunks(moduleVersionPublishOptions.File, v.Data.Links.Upload)
+		}
 		if err != nil {
 			fmt.Println(fmt.Errorf("error uploading file [%s]: %w", moduleVersionPublishOptions.File, err))
 			return
