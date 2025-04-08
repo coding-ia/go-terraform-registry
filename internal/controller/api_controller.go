@@ -58,6 +58,14 @@ func (a *APIController) CreateEndpoints(r *gin.Engine) {
 	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", providersAPI.Get)
 	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", providersAPI.Delete)
 
+	modulesAPI := api.ModulesAPI{
+		Config:  a.Config,
+		Backend: a.Backend,
+		Storage: a.Storage,
+	}
+	endpoint.POST("/v2/organizations/:organization/registry-modules", modulesAPI.Create)
+	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", modulesAPI.Get)
+
 	gpgKeysAPI := api.GPGKeysAPI{
 		Config:  a.Config,
 		Backend: a.Backend,

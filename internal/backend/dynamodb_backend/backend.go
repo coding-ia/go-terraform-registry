@@ -38,6 +38,7 @@ func NewDynamoDBBackend(ctx context.Context, config config.RegistryConfig) (*bac
 		RegistryBackend:         b,
 		ProvidersBackend:        b,
 		ProviderVersionsBackend: b,
+		ModulesBackend:          b,
 		GPGKeysBackend:          b,
 	}, nil
 }
