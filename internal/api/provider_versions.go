@@ -50,7 +50,7 @@ func (a *ProviderVersionsAPI) CreateVersion(c *gin.Context) {
 	shaSum := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS", parameters.Name, req.Data.Attributes.Version)
 	shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", parameters.Name, req.Data.Attributes.Version)
 
-	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, req.Data.Attributes.Version)
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, req.Data.Attributes.Version)
 
 	shaSumURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSum))
 	shaSumSigURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
@@ -143,7 +143,7 @@ func (a *ProviderVersionsAPI) CreatePlatform(c *gin.Context) {
 		return
 	}
 
-	key := fmt.Sprintf("%s/%s/%s/%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
 	uploadURL, err := a.Storage.GenerateUploadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, req.Data.Attributes.Filename))
 
 	resp.Data.Links = models.ProviderVersionPlatformsLinksResponse{

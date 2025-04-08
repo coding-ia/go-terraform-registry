@@ -71,7 +71,7 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 	shaSum := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS", params.Name, params.Version)
 	shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", params.Name, params.Version)
 
-	key := fmt.Sprintf("%s/%s/%s/%s/%s", userParams.Organization, "private", params.Namespace, params.Name, params.Version)
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", userParams.Organization, "private", params.Namespace, params.Name, params.Version)
 
 	downloadURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, provider.Filename))
 	shaSumURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSum))
