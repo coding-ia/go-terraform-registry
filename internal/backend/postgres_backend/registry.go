@@ -105,7 +105,7 @@ func (p *PostgresBackend) GetModuleDownload(ctx context.Context, parameters regi
 	}
 
 	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", "modules", release.Organization, release.Registry, release.Namespace, release.Name, release.Provider, release.Version)
-	file := fmt.Sprintf("terraform-%s-%s-%s.tar.gz", release.Provider, release.Name, release.Version)
+	file := fmt.Sprintf("terraform-%s-%s-%s.zip", release.Provider, release.Name, release.Version)
 	path := fmt.Sprintf("%s/%s", key, file)
 
 	return &path, nil
