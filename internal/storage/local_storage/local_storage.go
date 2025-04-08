@@ -127,9 +127,7 @@ func (a *AssetEndpoint) UploadFile(c *gin.Context) {
 
 func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	tokenString := c.Param("token")
-	fileString := c.Param("file")
-
-	log.Printf("Remove file download %s\n", fileString)
+	fileName := c.Param("file")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.secretKey, nil
@@ -147,11 +145,8 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 
 	convertedPath := filepath.FromSlash(claims.Filename)
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
-
-	log.Println("Converted Path:", convertedPath)
-	log.Println("Joined Path:", joinedPath)
-
-	c.File(joinedPath)
+	
+	c.FileAttachment(joinedPath, fileName)
 }
 
 func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {
