@@ -91,6 +91,48 @@ func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
 	})
 }
 
+func getModuleReleases(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string) (*ModuleRelease, error) {
+	query := `
+		SELECT organization, registry, namespace, name, provider, versions
+		FROM registry_modules
+		WHERE organization = $1 AND registry = $2 AND namespace = $3 AND name = $4 AND provider = $5;
+	`
+
+	row := db.QueryRow(ctx, query, organization, registry, namespace, name, provider)
+	if row == nil {
+		return nil, fmt.Errorf("no provider release found for %s/%s/%s", namespace, name, provider)
+	}
+
+	var mr ModuleRelease
+	err := row.Scan(&mr.Organization, &mr.Registry, &mr.Namespace, &mr.Name, &mr.Provider, &mr.Versions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &mr, nil
+}
+
+func getModuleRelease(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string, version string) (*ModuleReleaseVersionInfo, error) {
+	query := `
+		SELECT organization, registry, namespace, name, provider, version, commit_sha
+		FROM registry_module_versions
+		WHERE organization = $1 AND registry = $2 AND namespace = $3 AND name = $4 AND provider = $5 AND version = $6;
+	`
+
+	row := db.QueryRow(ctx, query, organization, registry, namespace, name, provider, version)
+	if row == nil {
+		return nil, fmt.Errorf("no provider release found for %s/%s/%s", namespace, name, provider)
+	}
+
+	var mr ModuleReleaseVersionInfo
+	err := row.Scan(&mr.Organization, &mr.Registry, &mr.Namespace, &mr.Name, &mr.Provider, &mr.Version, &mr.CommitSHA)
+	if err != nil {
+		return nil, err
+	}
+
+	return &mr, nil
+}
+
 func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string) (*Module, error) {
 	query := `
 		SELECT module_id, provider, name, namespace, organization, registry

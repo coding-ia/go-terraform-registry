@@ -2,6 +2,7 @@ package postgres_backend
 
 import (
 	"context"
+	"fmt"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/models"
 	registrytypes "go-terraform-registry/internal/types"
@@ -74,9 +75,38 @@ func (p *PostgresBackend) GetProviderVersions(ctx context.Context, parameters re
 }
 
 func (p *PostgresBackend) GetModuleVersions(ctx context.Context, parameters registrytypes.ModuleVersionParameters) (*models.TerraformAvailableModule, error) {
-	return nil, nil
+	releases, err := getModuleReleases(ctx, p.db, parameters.Namespace, "private", parameters.Namespace, parameters.Name, parameters.System)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []models.TerraformAvailableModuleVersion
+	for _, v := range releases.Versions {
+		versions = append(versions, models.TerraformAvailableModuleVersion{
+			Version: v.Version,
+		})
+	}
+
+	modules := &models.TerraformAvailableModule{
+		Modules: []models.TerraformAvailableModuleVersions{
+			{
+				Versions: versions,
+			},
+		},
+	}
+
+	return modules, nil
 }
 
 func (p *PostgresBackend) GetModuleDownload(ctx context.Context, parameters registrytypes.ModuleDownloadParameters) (*string, error) {
-	return nil, nil
+	release, err := getModuleRelease(ctx, p.db, parameters.Namespace, "private", parameters.Namespace, parameters.Name, parameters.System, parameters.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", "modules", release.Organization, release.Registry, release.Namespace, release.Name, release.Provider, release.Version)
+	file := fmt.Sprintf("terraform-%s-%s-%s.tar.gz", release.Provider, release.Name, release.Version)
+	path := fmt.Sprintf("%s/%s", key, file)
+
+	return &path, nil
 }

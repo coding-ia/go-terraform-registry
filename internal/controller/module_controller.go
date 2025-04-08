@@ -5,6 +5,7 @@ import (
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/storage"
 	registrytypes "go-terraform-registry/internal/types"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 type ModuleController struct {
 	Config  registryconfig.RegistryConfig
 	Backend backend.Backend
+	Storage storage.RegistryProviderStorage
 }
 
 type RegistryModuleController interface {
@@ -20,10 +22,11 @@ type RegistryModuleController interface {
 	Versions(*gin.Context)
 }
 
-func NewModuleController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend) RegistryModuleController {
+func NewModuleController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryModuleController {
 	mc := &ModuleController{
 		Config:  config,
 		Backend: backend,
+		Storage: storage,
 	}
 
 	modules := r.Group("/terraform/modules/v1")
@@ -47,19 +50,24 @@ func (m *ModuleController) ModuleDownload(c *gin.Context) {
 		Version:   c.Param("version"),
 	}
 
-	uri, err := m.Backend.GetModuleDownload(c.Request.Context(), params)
+	path, err := m.Backend.GetModuleDownload(c.Request.Context(), params)
 	if err != nil {
 		log.Printf(err.Error())
 		errorResponse(c)
 		return
 	}
 
-	if uri == nil {
+	if path == nil {
 		errorResponseErrorNotFound(c, "Not Found")
 		return
 	}
 
-	c.Header("X-Terraform-Get", *uri)
+	uri, err := m.Storage.GenerateDownloadURL(c.Request.Context(), *path)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating download url."})
+	}
+
+	c.Header("X-Terraform-Get", uri)
 	c.Status(http.StatusNoContent)
 }
 

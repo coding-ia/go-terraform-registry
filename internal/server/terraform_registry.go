@@ -55,7 +55,7 @@ func StartServer(version string) {
 	// Configure controllers
 	_ = controller.NewServiceController(r)
 	_ = controller.NewProviderController(r, c, *b, s)
-	_ = controller.NewModuleController(r, c, *b)
+	_ = controller.NewModuleController(r, c, *b, s)
 	_ = controller.NewAuthenticationController(r, c)
 	apiController := controller.NewAPIController(c, *b, s)
 

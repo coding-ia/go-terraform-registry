@@ -64,3 +64,26 @@ type ProviderRelease struct {
 	GPGASCIIArmor string             `json:"gpg_ascii_armor"`
 	GPGKeyID      string             `json:"gpg_key_id"`
 }
+
+type ModuleRelease struct {
+	Organization string                 `json:"organization"`
+	Registry     string                 `json:"registry"`
+	Namespace    string                 `json:"namespace"`
+	Name         string                 `json:"name"`
+	Provider     string                 `json:"provider"`
+	Versions     []ModuleReleaseVersion `json:"versions"`
+}
+
+type ModuleReleaseVersion struct {
+	Version string `json:"version"`
+}
+
+type ModuleReleaseVersionInfo struct {
+	Organization string `json:"organization"`
+	Registry     string `json:"registry"`
+	Namespace    string `json:"namespace"`
+	Name         string `json:"name"`
+	Provider     string `json:"provider"`
+	Version      string `json:"version"`
+	CommitSHA    string `json:"commit_sha"`
+}

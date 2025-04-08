@@ -131,3 +131,16 @@ CREATE VIEW registry_modules AS
   FROM modules m
   JOIN module_versions mv ON m.module_id = mv.module_id
   GROUP BY m.organization, m.registry, m.namespace, m.name, m.provider;
+  
+CREATE VIEW registry_module_versions AS
+  SELECT
+    m.organization,
+    m.registry,
+    m.namespace,
+    m.name,
+    m.provider,  
+    mv.version,
+	mv.commit_sha
+  FROM modules m
+  JOIN module_versions mv ON m.module_id = mv.module_id
+  GROUP BY m.organization, m.registry, m.namespace, m.name, m.provider, mv.version, mv.commit_sha;
