@@ -23,7 +23,9 @@ var addCmd = &cobra.Command{
 	Short: "Add a GPG key",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		endpoint, _ := cmd.Flags().GetString("endpoint")
-		if !setAuthTokenFromEnv(endpoint) {
+		authToken, _ := cmd.Flags().GetString("auth-token")
+		if authToken == "" && !setAuthTokenFromEnv(endpoint) {
+			_ = authToken
 			return errors.New("required flag(s) \"auth-token\" not set")
 		}
 		return nil
