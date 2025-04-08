@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -65,7 +66,7 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
 
 	routerGroup.PUT("/upload/:token", ae.UploadFile)
-	routerGroup.GET("/download/:token", ae.DownloadFile)
+	routerGroup.GET("/download/:token/:file", ae.DownloadFile)
 }
 
 func (l *LocalStorage) ConfigureStorage(_ context.Context) error {
@@ -95,9 +96,9 @@ func (l *LocalStorage) GenerateUploadURL(_ context.Context, path string) (string
 	return url, nil
 }
 
-func (l *LocalStorage) GenerateDownloadURL(_ context.Context, path string) (string, error) {
+func (l *LocalStorage) GenerateDownloadURL(_ context.Context, filePath string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AssetClaims{
-		Filename: path,
+		Filename: filePath,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(60 * time.Minute)), // 15-minute expiry
 		},
@@ -108,7 +109,8 @@ func (l *LocalStorage) GenerateDownloadURL(_ context.Context, path string) (stri
 		return "", err
 	}
 
-	url := fmt.Sprintf("%s/asset/download/%s", l.Endpoint, signedToken)
+	filename := path.Base(filePath)
+	url := fmt.Sprintf("%s/asset/download/%s/%s", l.Endpoint, signedToken, filename)
 
 	return url, nil
 }
@@ -125,6 +127,7 @@ func (a *AssetEndpoint) UploadFile(c *gin.Context) {
 
 func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	tokenString := c.Param("token")
+	_ = c.Param("file")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.secretKey, nil

@@ -15,6 +15,23 @@ type Provider struct {
 	RegistryName string `json:"registry_name"`
 }
 
+type Module struct {
+	ID           string `json:"id"`
+	Provider     string `json:"provider"`
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace"`
+	Organization string `json:"organization"`
+	RegistryName string `json:"registry_name"`
+	NoCode       bool   `json:"no_code"`
+}
+
+type ModuleVersion struct {
+	ID        string `json:"id"`
+	ModuleID  string `json:"module_id"`
+	Version   string `json:"version"`
+	CommitSHA string `json:"commit_sha"`
+}
+
 type ProviderVersion struct {
 	ID         string                  `json:"id"`
 	ProviderID string                  `json:"provider_id"`
@@ -46,4 +63,27 @@ type ProviderRelease struct {
 	Platforms     []ProviderPlatform `json:"platforms"`
 	GPGASCIIArmor string             `json:"gpg_ascii_armor"`
 	GPGKeyID      string             `json:"gpg_key_id"`
+}
+
+type ModuleRelease struct {
+	Organization string                 `json:"organization"`
+	Registry     string                 `json:"registry"`
+	Namespace    string                 `json:"namespace"`
+	Name         string                 `json:"name"`
+	Provider     string                 `json:"provider"`
+	Versions     []ModuleReleaseVersion `json:"versions"`
+}
+
+type ModuleReleaseVersion struct {
+	Version string `json:"version"`
+}
+
+type ModuleReleaseVersionInfo struct {
+	Organization string `json:"organization"`
+	Registry     string `json:"registry"`
+	Namespace    string `json:"namespace"`
+	Name         string `json:"name"`
+	Provider     string `json:"provider"`
+	Version      string `json:"version"`
+	CommitSHA    string `json:"commit_sha"`
 }

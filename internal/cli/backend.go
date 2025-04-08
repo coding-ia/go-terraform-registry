@@ -88,7 +88,7 @@ func postgresMigrate(ctx context.Context, args []string) {
 			log.Fatalf("Downgrade failed: %v\n", err)
 		}
 
-		fmt.Println("Downgrade succeeded")
+		log.Println("Downgrade succeeded")
 		return
 	}
 }

@@ -33,6 +33,8 @@ func NewBadgerDBBackend(_ context.Context, config config.RegistryConfig) (*backe
 		RegistryBackend:         b,
 		ProvidersBackend:        b,
 		ProviderVersionsBackend: b,
+		ModulesBackend:          b,
+		ModuleVersionsBackend:   b,
 		GPGKeysBackend:          b,
 	}, nil
 }

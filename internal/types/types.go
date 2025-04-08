@@ -32,6 +32,7 @@ type APIParameters struct {
 	Namespace    string
 	Name         string
 	Version      string
+	Provider     string
 }
 
 type UserParameters struct {

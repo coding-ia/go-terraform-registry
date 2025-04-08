@@ -57,6 +57,38 @@ CREATE TABLE IF NOT EXISTS provider_version_platforms
   CONSTRAINT unique_provider_version_platform UNIQUE (provider_version_id, os, arch)
 );
 
+CREATE TABLE IF NOT EXISTS modules
+(
+  module_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(64) NOT NULL,
+  namespace varchar(64) NOT NULL,
+  organization varchar(255) NOT NULL,
+  provider varchar(64) NOT NULL,
+  registry varchar(64) NOT NULL,
+  no_code BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata JSONB,
+  
+  CONSTRAINT unique_module_identity UNIQUE (name, namespace, organization, registry)
+);
+
+CREATE TABLE IF NOT EXISTS module_versions
+(
+  module_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  module_id uuid NOT NULL,
+  version varchar(32) NOT NULL,
+  commit_sha varchar(40) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata JSONB,
+  FOREIGN KEY (module_id) REFERENCES modules(module_id) ON DELETE CASCADE,
+  
+  CONSTRAINT unique_module_version UNIQUE (module_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_module_versions ON modules (organization, registry, namespace, name);
+
 CREATE VIEW registry_provider_releases AS
   SELECT
     p.organization,
@@ -87,3 +119,28 @@ CREATE VIEW registry_provider_release AS
   JOIN gpg_keys g ON pv.gpgkey_id = g.gpgkey_id
   JOIN provider_version_platforms pvp ON pv.provider_version_id = pvp.provider_version_id
   GROUP BY p.organization, p.registry, p.namespace, p.name, g.key_id, g.ascii_armor, pv.version, pv.metadata -> 'protocols';
+
+CREATE VIEW registry_modules AS
+  SELECT
+    m.organization,
+    m.registry,
+    m.namespace,
+    m.name,
+    m.provider,  
+    JSON_AGG(JSON_BUILD_OBJECT('version', mv.version)) AS versions
+  FROM modules m
+  JOIN module_versions mv ON m.module_id = mv.module_id
+  GROUP BY m.organization, m.registry, m.namespace, m.name, m.provider;
+  
+CREATE VIEW registry_module_versions AS
+  SELECT
+    m.organization,
+    m.registry,
+    m.namespace,
+    m.name,
+    m.provider,  
+    mv.version,
+	mv.commit_sha
+  FROM modules m
+  JOIN module_versions mv ON m.module_id = mv.module_id
+  GROUP BY m.organization, m.registry, m.namespace, m.name, m.provider, mv.version, mv.commit_sha;

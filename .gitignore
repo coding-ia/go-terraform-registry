@@ -1,3 +1,4 @@
 /.idea
 /registry_db
 *.exe
+*.gz

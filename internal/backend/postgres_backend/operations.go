@@ -71,6 +71,116 @@ func gpgSelect(ctx context.Context, db *pgxpool.Pool, keyID, namespace string) (
 	return &key, nil
 }
 
+func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			INSERT INTO modules (provider, name, namespace, organization, registry)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING module_id;
+	`
+		err := tx.QueryRow(ctx, query, value.Provider, value.Name, value.Namespace, value.Organization, value.RegistryName).Scan(&value.ID)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_module_identity" {
+					return fmt.Errorf("module already exists")
+				}
+			}
+		}
+		return err
+	})
+}
+
+func getModuleReleases(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string) (*ModuleRelease, error) {
+	query := `
+		SELECT organization, registry, namespace, name, provider, versions
+		FROM registry_modules
+		WHERE organization = $1 AND registry = $2 AND namespace = $3 AND name = $4 AND provider = $5;
+	`
+
+	row := db.QueryRow(ctx, query, organization, registry, namespace, name, provider)
+	if row == nil {
+		return nil, fmt.Errorf("no provider release found for %s/%s/%s", namespace, name, provider)
+	}
+
+	var mr ModuleRelease
+	err := row.Scan(&mr.Organization, &mr.Registry, &mr.Namespace, &mr.Name, &mr.Provider, &mr.Versions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &mr, nil
+}
+
+func getModuleRelease(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string, version string) (*ModuleReleaseVersionInfo, error) {
+	query := `
+		SELECT organization, registry, namespace, name, provider, version, commit_sha
+		FROM registry_module_versions
+		WHERE organization = $1 AND registry = $2 AND namespace = $3 AND name = $4 AND provider = $5 AND version = $6;
+	`
+
+	row := db.QueryRow(ctx, query, organization, registry, namespace, name, provider, version)
+	if row == nil {
+		return nil, fmt.Errorf("no provider release found for %s/%s/%s", namespace, name, provider)
+	}
+
+	var mr ModuleReleaseVersionInfo
+	err := row.Scan(&mr.Organization, &mr.Registry, &mr.Namespace, &mr.Name, &mr.Provider, &mr.Version, &mr.CommitSHA)
+	if err != nil {
+		return nil, err
+	}
+
+	return &mr, nil
+}
+
+func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string) (*Module, error) {
+	query := `
+		SELECT module_id, provider, name, namespace, organization, registry
+		FROM modules
+		WHERE provider = $1 AND name = $2 AND namespace = $3 AND organization = $4 AND registry = $5;
+	`
+
+	row := db.QueryRow(ctx, query, provider, name, namespace, organization, registry)
+
+	var module Module
+	err := row.Scan(
+		&module.ID,
+		&module.Provider,
+		&module.Name,
+		&module.Namespace,
+		&module.Organization,
+		&module.RegistryName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &module, nil
+}
+
+func moduleVersionsInsert(ctx context.Context, db *pgxpool.Pool, value *ModuleVersion) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			INSERT INTO module_versions (module_id, version, commit_sha)
+			VALUES ($1, $2, $3)
+			RETURNING module_version_id;
+	`
+		err := tx.QueryRow(ctx, query, value.ModuleID, value.Version, value.CommitSHA).Scan(&value.ID)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_module_version" {
+					return fmt.Errorf("module version already exists")
+				}
+			}
+		}
+		return err
+	})
+}
+
 func providersInsert(ctx context.Context, db *pgxpool.Pool, value *Provider) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `
