@@ -57,6 +57,24 @@ CREATE TABLE IF NOT EXISTS provider_version_platforms
   CONSTRAINT unique_provider_version_platform UNIQUE (provider_version_id, os, arch)
 );
 
+CREATE TABLE IF NOT EXISTS modules
+(
+  module_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(255) NOT NULL,
+  namespace varchar(255) NOT NULL,
+  organization varchar(255) NOT NULL,
+  registry varchar(255) NOT NULL,
+  version varchar(32) NOT NULL,
+  link varchar(2048) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata JSONB,
+  
+  CONSTRAINT unique_module_identity UNIQUE (name, namespace, organization, registry, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_module_versions ON modules (organization, registry, namespace, name);
+
 CREATE VIEW registry_provider_releases AS
   SELECT
     p.organization,
