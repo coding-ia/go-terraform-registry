@@ -2,6 +2,7 @@ package postgres_backend
 
 import (
 	"context"
+	"fmt"
 	"go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	registrytypes "go-terraform-registry/internal/types"
@@ -23,9 +24,43 @@ func (p *PostgresBackend) ModulesCreate(ctx context.Context, parameters registry
 		return nil, err
 	}
 
-	return nil, nil
+	resp := &models.ModulesResponse{
+		Data: models.ModulesDataResponse{
+			ID:   module.ID,
+			Type: "registry-modules",
+			Attributes: models.ModulesAttributesResponse{
+				Name:         module.Name,
+				Namespace:    module.Namespace,
+				RegistryName: module.RegistryName,
+				Provider:     module.Provider,
+			},
+		},
+	}
+
+	return resp, nil
 }
 
 func (p *PostgresBackend) ModulesGet(ctx context.Context, parameters registrytypes.APIParameters) (*models.ModulesResponse, error) {
-	return nil, nil
+	module, err := modulesSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Provider)
+	if err != nil {
+		return nil, err
+	}
+	if module == nil {
+		return nil, fmt.Errorf("module not found")
+	}
+
+	resp := &models.ModulesResponse{
+		Data: models.ModulesDataResponse{
+			ID:   module.ID,
+			Type: "registry-modules",
+			Attributes: models.ModulesAttributesResponse{
+				Name:         module.Name,
+				Namespace:    module.Namespace,
+				RegistryName: module.RegistryName,
+				Provider:     module.Provider,
+			},
+		},
+	}
+
+	return resp, nil
 }

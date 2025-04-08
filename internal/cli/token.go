@@ -9,8 +9,9 @@ import (
 )
 
 type TokenOptions struct {
-	Key  string
-	User string
+	Key          string
+	User         string
+	Organization string
 }
 
 var tokenOptions = &TokenOptions{}
@@ -35,6 +36,7 @@ func init() {
 	tokenKey := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	generateCmd.Flags().StringVar(&tokenOptions.Key, "key", tokenKey, "Token encryption key")
 	generateCmd.Flags().StringVar(&tokenOptions.User, "user", "", "User name")
+	generateCmd.Flags().StringVar(&tokenOptions.Organization, "organization", "", "Organization")
 
 	_ = generateCmd.MarkFlagRequired("user")
 	if tokenKey == "" {
@@ -43,7 +45,7 @@ func init() {
 }
 
 func generateToken(_ context.Context) {
-	token, err := auth.CreateJWTToken(tokenOptions.User, []byte(tokenOptions.Key))
+	token, err := auth.CreateJWTOrganizationToken(tokenOptions.User, tokenOptions.Organization, []byte(tokenOptions.Key))
 	if err != nil {
 		fmt.Printf("Error generating token: %v\n", err)
 		return

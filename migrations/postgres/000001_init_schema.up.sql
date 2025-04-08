@@ -119,3 +119,15 @@ CREATE VIEW registry_provider_release AS
   JOIN gpg_keys g ON pv.gpgkey_id = g.gpgkey_id
   JOIN provider_version_platforms pvp ON pv.provider_version_id = pvp.provider_version_id
   GROUP BY p.organization, p.registry, p.namespace, p.name, g.key_id, g.ascii_armor, pv.version, pv.metadata -> 'protocols';
+
+CREATE VIEW registry_modules AS
+  SELECT
+    m.organization,
+    m.registry,
+    m.namespace,
+    m.name,
+    m.provider,  
+    JSON_AGG(JSON_BUILD_OBJECT('version', mv.version)) AS versions
+  FROM modules m
+  JOIN module_versions mv ON m.module_id = mv.module_id
+  GROUP BY m.organization, m.registry, m.namespace, m.name, m.provider;

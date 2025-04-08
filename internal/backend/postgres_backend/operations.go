@@ -74,7 +74,7 @@ func gpgSelect(ctx context.Context, db *pgxpool.Pool, keyID, namespace string) (
 func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `
-			INSERT INTO providers (provider, name, namespace, organization, registry)
+			INSERT INTO modules (provider, name, namespace, organization, registry)
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING module_id;
 	`
@@ -91,14 +91,14 @@ func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
 	})
 }
 
-func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string, version string) (*Module, error) {
+func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string) (*Module, error) {
 	query := `
 		SELECT module_id, provider, name, namespace, organization, registry
-		FROM providers
+		FROM modules
 		WHERE provider = $1 AND name = $2 AND namespace = $3 AND organization = $4 AND registry = $5;
 	`
 
-	row := db.QueryRow(ctx, query, name, namespace, organization, registry)
+	row := db.QueryRow(ctx, query, provider, name, namespace, organization, registry)
 
 	var module Module
 	err := row.Scan(
@@ -117,6 +117,26 @@ func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, r
 	}
 
 	return &module, nil
+}
+
+func moduleVersionsInsert(ctx context.Context, db *pgxpool.Pool, value *ModuleVersion) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			INSERT INTO module_versions (module_id, version, commit_sha)
+			VALUES ($1, $2, $3)
+			RETURNING module_version_id;
+	`
+		err := tx.QueryRow(ctx, query, value.ModuleID, value.Version, value.CommitSHA).Scan(&value.ID)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_module_version" {
+					return fmt.Errorf("module version already exists")
+				}
+			}
+		}
+		return err
+	})
 }
 
 func providersInsert(ctx context.Context, db *pgxpool.Pool, value *Provider) error {
