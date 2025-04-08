@@ -4,6 +4,8 @@ DROP VIEW IF EXISTS registry_provider_release;
 
 DROP VIEW IF EXISTS registry_provider_releases;
 
+DROP TABLE IF EXISTS module_versions;
+
 DROP TABLE IF EXISTS modules;
 
 DROP TABLE IF EXISTS provider_version_platforms CASCADE;

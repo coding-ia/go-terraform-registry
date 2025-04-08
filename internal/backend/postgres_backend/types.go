@@ -15,6 +15,23 @@ type Provider struct {
 	RegistryName string `json:"registry_name"`
 }
 
+type Module struct {
+	ID           string `json:"id"`
+	Provider     string `json:"provider"`
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace"`
+	Organization string `json:"organization"`
+	RegistryName string `json:"registry_name"`
+	NoCode       bool   `json:"no_code"`
+}
+
+type ModuleVersion struct {
+	ID        string `json:"id"`
+	ModuleID  string `json:"module_id"`
+	Version   string `json:"version"`
+	CommitSHA string `json:"commit_sha"`
+}
+
 type ProviderVersion struct {
 	ID         string                  `json:"id"`
 	ProviderID string                  `json:"provider_id"`

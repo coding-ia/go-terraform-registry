@@ -71,6 +71,54 @@ func gpgSelect(ctx context.Context, db *pgxpool.Pool, keyID, namespace string) (
 	return &key, nil
 }
 
+func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			INSERT INTO providers (provider, name, namespace, organization, registry)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING module_id;
+	`
+		err := tx.QueryRow(ctx, query, value.Provider, value.Name, value.Namespace, value.Organization, value.RegistryName).Scan(&value.ID)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.ConstraintName == "unique_module_identity" {
+					return fmt.Errorf("module already exists")
+				}
+			}
+		}
+		return err
+	})
+}
+
+func modulesSelect(ctx context.Context, db *pgxpool.Pool, organization string, registry string, namespace string, name string, provider string, version string) (*Module, error) {
+	query := `
+		SELECT module_id, provider, name, namespace, organization, registry
+		FROM providers
+		WHERE provider = $1 AND name = $2 AND namespace = $3 AND organization = $4 AND registry = $5;
+	`
+
+	row := db.QueryRow(ctx, query, name, namespace, organization, registry)
+
+	var module Module
+	err := row.Scan(
+		&module.ID,
+		&module.Provider,
+		&module.Name,
+		&module.Namespace,
+		&module.Organization,
+		&module.RegistryName,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &module, nil
+}
+
 func providersInsert(ctx context.Context, db *pgxpool.Pool, value *Provider) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `

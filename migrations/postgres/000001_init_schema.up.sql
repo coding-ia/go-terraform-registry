@@ -60,17 +60,31 @@ CREATE TABLE IF NOT EXISTS provider_version_platforms
 CREATE TABLE IF NOT EXISTS modules
 (
   module_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name varchar(255) NOT NULL,
-  namespace varchar(255) NOT NULL,
+  name varchar(64) NOT NULL,
+  namespace varchar(64) NOT NULL,
   organization varchar(255) NOT NULL,
-  registry varchar(255) NOT NULL,
-  version varchar(32) NOT NULL,
-  link varchar(2048) NOT NULL,
+  provider varchar(64) NOT NULL,
+  registry varchar(64) NOT NULL,
+  no_code BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   metadata JSONB,
   
-  CONSTRAINT unique_module_identity UNIQUE (name, namespace, organization, registry, version)
+  CONSTRAINT unique_module_identity UNIQUE (name, namespace, organization, registry)
+);
+
+CREATE TABLE IF NOT EXISTS module_versions
+(
+  module_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  module_id uuid NOT NULL,
+  version varchar(32) NOT NULL,
+  commit_sha varchar(40) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata JSONB,
+  FOREIGN KEY (module_id) REFERENCES modules(module_id) ON DELETE CASCADE,
+  
+  CONSTRAINT unique_module_version UNIQUE (module_id, version)
 );
 
 CREATE INDEX IF NOT EXISTS idx_module_versions ON modules (organization, registry, namespace, name);
