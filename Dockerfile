@@ -18,6 +18,7 @@ WORKDIR /app
 
 COPY --from=builder /src/tfrepo_server /app
 COPY --from=builder /src/tfrepoctl /app
+COPY --from=builder /src/migrations /app/migrations
 
 RUN chown -R repouser:repouser /app
 
