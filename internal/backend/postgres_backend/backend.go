@@ -29,6 +29,7 @@ func NewPostgresBackend(_ context.Context, config config.RegistryConfig) (*backe
 		ProvidersBackend:        b,
 		ProviderVersionsBackend: b,
 		ModulesBackend:          b,
+		ModuleVersionsBackend:   b,
 		GPGKeysBackend:          b,
 	}, nil
 }

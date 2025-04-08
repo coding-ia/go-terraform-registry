@@ -66,6 +66,13 @@ func (a *APIController) CreateEndpoints(r *gin.Engine) {
 	endpoint.POST("/v2/organizations/:organization/registry-modules", modulesAPI.Create)
 	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", modulesAPI.Get)
 
+	moduleVersionsAPI := api.ModuleVersionsAPI{
+		Config:  a.Config,
+		Backend: a.Backend,
+		Storage: a.Storage,
+	}
+	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", moduleVersionsAPI.Create)
+
 	gpgKeysAPI := api.GPGKeysAPI{
 		Config:  a.Config,
 		Backend: a.Backend,

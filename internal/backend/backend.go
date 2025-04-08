@@ -13,6 +13,7 @@ type Backend struct {
 	ProvidersBackend
 	ProviderVersionsBackend
 	ModulesBackend
+	ModuleVersionsBackend
 	GPGKeysBackend
 }
 
@@ -37,6 +38,10 @@ type ProviderVersionsBackend interface {
 type ModulesBackend interface {
 	ModulesCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ModulesRequest) (*apimodels.ModulesResponse, error)
 	ModulesGet(ctx context.Context, parameters registrytypes.APIParameters) (*apimodels.ModulesResponse, error)
+}
+
+type ModuleVersionsBackend interface {
+	ModuleVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ModuleVersionsRequest) (*apimodels.ModuleVersionsResponse, error)
 }
 
 type GPGKeysBackend interface {
