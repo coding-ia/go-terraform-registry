@@ -226,9 +226,10 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 		return
 	}
 
+	filePath := claims.Filename
+	fileName := path.Base(filePath)
 	chunkNumberStr := c.GetHeader("Chunk-Number")
 	totalChunksStr := c.GetHeader("Total-Chunks")
-	chunkFileName := c.GetHeader("File-Name")
 
 	chunkNumber, err := strconv.Atoi(chunkNumberStr)
 	if err != nil {
@@ -248,11 +249,11 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 		return
 	}
 
-	convertedPath := filepath.FromSlash(claims.Filename)
+	convertedPath := filepath.FromSlash(filePath)
 	joinedPath := filepath.Join(assetPath, convertedPath)
 	directoryPath := filepath.Dir(joinedPath)
 
-	chunkedFileName := fmt.Sprintf("%s.part%d", chunkFileName, chunkNumber)
+	chunkedFileName := fmt.Sprintf("%s.part%d", fileName, chunkNumber)
 	chunkedFilePath := filepath.Join(directoryPath, chunkedFileName)
 
 	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
@@ -265,7 +266,7 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 	}
 
 	if chunkNumber == totalChunks {
-		err = assembleFile(directoryPath, chunkFileName, totalChunks)
+		err = assembleFile(directoryPath, fileName, totalChunks)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assemble file"})
 			return
