@@ -66,6 +66,7 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
 
 	routerGroup.PUT("/upload/:token", ae.UploadFile)
+	routerGroup.HEAD("/download/:token/:file", ae.DownloadFile)
 	routerGroup.GET("/download/:token/:file", ae.DownloadFile)
 }
 
@@ -145,8 +146,32 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 
 	convertedPath := filepath.FromSlash(claims.Filename)
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
+	fileName := path.Base(joinedPath)
 
-	c.File(joinedPath)
+	if c.Request.Method == http.MethodHead {
+		log.Printf("HEAD request for file: %s", joinedPath)
+		fileInfo, err := os.Stat(joinedPath)
+		if err != nil {
+			log.Printf("File not found: %s", joinedPath)
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			return
+		}
+
+		c.Header("Content-Type", "application/octet-stream")
+		c.Header("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+		c.Status(http.StatusOK)
+
+		return
+	}
+
+	_, err = os.Stat(joinedPath)
+	if err != nil {
+		log.Printf("File not found: %s", joinedPath)
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+
+	c.FileAttachment(joinedPath, fileName)
 }
 
 func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {
@@ -202,9 +227,10 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 		return
 	}
 
+	filePath := claims.Filename
+	fileName := path.Base(filePath)
 	chunkNumberStr := c.GetHeader("Chunk-Number")
 	totalChunksStr := c.GetHeader("Total-Chunks")
-	chunkFileName := c.GetHeader("File-Name")
 
 	chunkNumber, err := strconv.Atoi(chunkNumberStr)
 	if err != nil {
@@ -224,11 +250,11 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 		return
 	}
 
-	convertedPath := filepath.FromSlash(claims.Filename)
+	convertedPath := filepath.FromSlash(filePath)
 	joinedPath := filepath.Join(assetPath, convertedPath)
 	directoryPath := filepath.Dir(joinedPath)
 
-	chunkedFileName := fmt.Sprintf("%s.part%d", chunkFileName, chunkNumber)
+	chunkedFileName := fmt.Sprintf("%s.part%d", fileName, chunkNumber)
 	chunkedFilePath := filepath.Join(directoryPath, chunkedFileName)
 
 	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
@@ -241,7 +267,7 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 	}
 
 	if chunkNumber == totalChunks {
-		err = assembleFile(directoryPath, chunkFileName, totalChunks)
+		err = assembleFile(directoryPath, fileName, totalChunks)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assemble file"})
 			return
