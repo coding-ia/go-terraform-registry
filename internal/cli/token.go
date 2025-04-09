@@ -39,6 +39,7 @@ func init() {
 	generateCmd.Flags().StringVar(&tokenOptions.Organization, "organization", "", "Organization")
 
 	_ = generateCmd.MarkFlagRequired("user")
+	_ = generateCmd.MarkFlagRequired("organization")
 	if tokenKey == "" {
 		_ = generateCmd.MarkFlagRequired("key")
 	}
