@@ -77,3 +77,8 @@ func (s *S3Storage) GenerateDownloadURL(ctx context.Context, path string) (strin
 	}
 	return preSignedGetObject.URL, nil
 }
+
+func (s *S3Storage) RemoveFile(_ context.Context, path string) error {
+	log.Printf("Removing file: %s", path)
+	return nil
+}
