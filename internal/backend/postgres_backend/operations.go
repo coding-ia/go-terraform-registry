@@ -181,6 +181,17 @@ func moduleVersionsInsert(ctx context.Context, db *pgxpool.Pool, value *ModuleVe
 	})
 }
 
+func moduleVersionsDelete(ctx context.Context, db *pgxpool.Pool, moduleId string, version string) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			DELETE FROM module_versions
+			WHERE module_id = $1 AND version = $2;
+	`
+		_, err := tx.Exec(ctx, query, moduleId, version)
+		return err
+	})
+}
+
 func providersInsert(ctx context.Context, db *pgxpool.Pool, value *Provider) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `
