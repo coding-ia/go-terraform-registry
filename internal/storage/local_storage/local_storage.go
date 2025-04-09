@@ -24,8 +24,9 @@ var _ storage.RegistryProviderStorageAssetEndpoint = &LocalStorage{}
 var _ LocalStorageAssetEndpoint = &AssetEndpoint{}
 
 type LocalStorage struct {
-	Config   config.RegistryConfig
-	Endpoint string
+	AssetPath string
+	Config    config.RegistryConfig
+	Endpoint  string
 
 	secretKey []byte
 }
@@ -37,8 +38,8 @@ type AssetEndpoint struct {
 }
 
 type LocalStorageAssetEndpoint interface {
-	UploadFile(c *gin.Context)
-	DownloadFile(c *gin.Context)
+	UploadFile(*gin.Context)
+	DownloadFile(*gin.Context)
 }
 
 func NewLocalStorage(config config.RegistryConfig) storage.RegistryProviderStorage {
@@ -61,6 +62,7 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 		l.Endpoint = "http://localhost:8080"
 	}
 	ae.AssetPath = os.Getenv("LOCAL_STORAGE_ASSETS_PATH")
+	l.AssetPath = ae.AssetPath
 
 	log.Printf("Local Storage Endpoint: %s", l.Endpoint)
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
@@ -172,6 +174,20 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	}
 
 	c.FileAttachment(joinedPath, fileName)
+}
+
+func (l *LocalStorage) RemoveFile(_ context.Context, path string) error {
+	log.Printf("Removing file: %s", path)
+
+	convertedPath := filepath.FromSlash(path)
+	joinedPath := filepath.Join(l.AssetPath, convertedPath)
+
+	_, err := os.Stat(joinedPath)
+	if err == nil {
+		return os.Remove(joinedPath)
+	}
+
+	return err
 }
 
 func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {

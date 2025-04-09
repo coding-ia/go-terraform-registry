@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-terraform-registry/internal/api/models"
 	registrytypes "go-terraform-registry/internal/types"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -76,6 +77,13 @@ func (a *ModuleVersionsAPI) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s", "modules", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Provider, parameters.Version)
+	file := fmt.Sprintf("terraform-%s-%s-%s.tar.gz", parameters.Provider, parameters.Name, parameters.Version)
+	err = a.Storage.RemoveFile(c.Request.Context(), fmt.Sprintf("%s/%s", key, file))
+	if err != nil {
+		log.Printf("Error removing file: %s", err.Error())
 	}
 
 	c.Status(statusCode)
