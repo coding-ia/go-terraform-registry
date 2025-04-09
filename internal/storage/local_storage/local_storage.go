@@ -128,6 +128,7 @@ func (a *AssetEndpoint) UploadFile(c *gin.Context) {
 
 func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	tokenString := c.Param("token")
+	_ = c.Param("file")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.secretKey, nil
