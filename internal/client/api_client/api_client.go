@@ -140,3 +140,37 @@ func (c *APIClient) GetRequest(url string, result any) (int, error) {
 
 	return resp.StatusCode, nil
 }
+
+func (c *APIClient) DeleteRequest(url string) (int, error) {
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return -1, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return -1, fmt.Errorf("error making request: %w", err)
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("error closing response body: %v", err)
+		}
+	}()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return resp.StatusCode, fmt.Errorf("unable to process request")
+	}
+
+	if resp.StatusCode == http.StatusNoContent {
+		return resp.StatusCode, nil
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resp.StatusCode, fmt.Errorf("request failed with status %d", resp.StatusCode)
+	}
+
+	return resp.StatusCode, nil
+}

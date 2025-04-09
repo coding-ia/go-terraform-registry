@@ -65,5 +65,4 @@ func (a *ModulesAPI) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
-
 }

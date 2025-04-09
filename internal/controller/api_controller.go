@@ -73,6 +73,7 @@ func (a *APIController) CreateEndpoints(r *gin.Engine) {
 		Storage: a.Storage,
 	}
 	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", validateOrganization, moduleVersionsAPI.Create)
+	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version", validateOrganization, moduleVersionsAPI.Delete)
 
 	gpgKeysAPI := api.GPGKeysAPI{
 		Config:  a.Config,
@@ -125,4 +126,5 @@ func validateOrganization(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Invalid token for organization"})
 		return
 	}
+	c.Next()
 }

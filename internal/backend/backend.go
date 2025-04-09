@@ -42,6 +42,7 @@ type ModulesBackend interface {
 
 type ModuleVersionsBackend interface {
 	ModuleVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request apimodels.ModuleVersionsRequest) (*apimodels.ModuleVersionsResponse, error)
+	ModuleVersionsDelete(ctx context.Context, parameters registrytypes.APIParameters) (int, error)
 }
 
 type GPGKeysBackend interface {

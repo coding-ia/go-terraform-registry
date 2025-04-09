@@ -54,3 +54,29 @@ func (a *ModuleVersionsAPI) Create(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, resp)
 }
+
+func (a *ModuleVersionsAPI) Delete(c *gin.Context) {
+	organization := c.Param("organization")
+	registry := c.Param("registry")
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+	provider := c.Param("provider")
+	version := c.Param("version")
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+		Provider:     provider,
+		Version:      version,
+	}
+
+	statusCode, err := a.Backend.ModuleVersionsDelete(c.Request.Context(), parameters)
+	if err != nil {
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(statusCode)
+}
