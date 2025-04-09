@@ -109,6 +109,15 @@ func (c *APIClient) GetRequest(url string, result any) (int, error) {
 		return -1, fmt.Errorf("error reading response body: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		var errorMessage ErrorMessage
+		err = json.Unmarshal(respBody, &errorMessage)
+		if err != nil {
+			return resp.StatusCode, fmt.Errorf("error unmarshalling response: %w", err)
+		}
+		return resp.StatusCode, errors.New(errorMessage.Error)
+	}
+
 	if resp.StatusCode == http.StatusNotFound {
 		var errorMessage ErrorMessage
 		err = json.Unmarshal(respBody, &errorMessage)

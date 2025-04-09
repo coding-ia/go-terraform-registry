@@ -45,7 +45,7 @@ func init() {
 }
 
 func generateToken(_ context.Context) {
-	token, err := auth.CreateJWTOrganizationToken(tokenOptions.User, tokenOptions.Organization, []byte(tokenOptions.Key))
+	token, err := auth.CreateJWTClaimsToken(tokenOptions.User, tokenOptions.Organization, []byte(tokenOptions.Key))
 	if err != nil {
 		fmt.Printf("Error generating token: %v\n", err)
 		return

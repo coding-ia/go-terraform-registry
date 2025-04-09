@@ -8,6 +8,7 @@ import (
 	registryconfig "go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/storage"
 	"net/http"
+	"strings"
 )
 
 type APIController struct {
@@ -39,39 +40,39 @@ func (a *APIController) CreateEndpoints(r *gin.Engine) {
 		Backend: a.Backend,
 		Storage: a.Storage,
 	}
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions", providerVersionsAPI.CreateVersion)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/", providerVersionsAPI.ListVersions)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", providerVersionsAPI.GetVersion)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", providerVersionsAPI.DeleteVersion)
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", providerVersionsAPI.CreatePlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", providerVersionsAPI.ListPlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", providerVersionsAPI.GetPlatform)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", providerVersionsAPI.DeletePlatform)
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions", validateOrganization, providerVersionsAPI.CreateVersion)
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/", validateOrganization, providerVersionsAPI.ListVersions)
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.GetVersion)
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.DeleteVersion)
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.CreatePlatform)
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.ListPlatform)
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.GetPlatform)
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.DeletePlatform)
 
 	providersAPI := api.ProvidersAPI{
 		Config:  a.Config,
 		Backend: a.Backend,
 		Storage: a.Storage,
 	}
-	endpoint.GET("/v2/organizations/:organization/registry-providers", providersAPI.List)
-	endpoint.POST("/v2/organizations/:organization/registry-providers", providersAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", providersAPI.Get)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", providersAPI.Delete)
+	endpoint.GET("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.List)
+	endpoint.POST("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.Create)
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Get)
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Delete)
 
 	modulesAPI := api.ModulesAPI{
 		Config:  a.Config,
 		Backend: a.Backend,
 		Storage: a.Storage,
 	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules", modulesAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", modulesAPI.Get)
+	endpoint.POST("/v2/organizations/:organization/registry-modules", validateOrganization, modulesAPI.Create)
+	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", validateOrganization, modulesAPI.Get)
 
 	moduleVersionsAPI := api.ModuleVersionsAPI{
 		Config:  a.Config,
 		Backend: a.Backend,
 		Storage: a.Storage,
 	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", moduleVersionsAPI.Create)
+	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", validateOrganization, moduleVersionsAPI.Create)
 
 	gpgKeysAPI := api.GPGKeysAPI{
 		Config:  a.Config,
@@ -99,8 +100,29 @@ func (a *APIController) AuthenticateRequest(c *gin.Context) {
 	}
 
 	tokenString := authHeader[len(prefix):]
-	_, err := auth.GetJWTToken(tokenString, []byte(a.Config.TokenEncryptionKey))
+	token, err := auth.GetJWTClaimsToken(tokenString, []byte(a.Config.TokenEncryptionKey))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+	}
+
+	if token != nil && token.Valid {
+		if claims, ok := token.Claims.(*auth.RegistryClaims); ok {
+			c.Set("organization", claims.Organization)
+		}
+	}
+
+	c.Next()
+}
+
+func validateOrganization(c *gin.Context) {
+	organizationParam := c.Param("organization")
+	organization, exist := c.Get("organization")
+	if !exist {
+		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Missing organization"})
+		return
+	}
+	if !strings.EqualFold(organization.(string), organizationParam) {
+		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Invalid token for organization"})
+		return
 	}
 }
