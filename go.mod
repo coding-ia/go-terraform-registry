@@ -5,14 +5,12 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/aws/aws-lambda-go v1.47.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.12
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.65
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.41.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17
-	github.com/awslabs/aws-lambda-go-api-proxy v0.16.3-0.20241029212349-55b777941b8d
 	github.com/dgraph-io/badger/v4 v4.6.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
