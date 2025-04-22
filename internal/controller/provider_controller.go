@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/response"
 	"go-terraform-registry/internal/storage"
 	registrytypes "go-terraform-registry/internal/types"
 	"log"
@@ -19,52 +20,56 @@ type ProviderController struct {
 }
 
 type RegistryProviderController interface {
-	ProviderPackage(*gin.Context)
-	Versions(*gin.Context)
+	ProviderPackage(http.ResponseWriter, *http.Request)
+	Versions(http.ResponseWriter, *http.Request)
 }
 
-func NewProviderController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryProviderController {
+func NewProviderController(router chi.Router, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryProviderController {
 	pc := &ProviderController{
 		Config:  config,
 		Backend: backend,
 		Storage: storage,
 	}
 
-	providers := r.Group("/terraform/providers/v1")
+	router.Route("/terraform/providers/v1", func(r chi.Router) {
+		if !config.AllowAnonymousAccess {
+			handler := auth.NewAuthenticationMiddleware(config)
+			r.Use(handler.AuthenticationHandlerMiddleware)
+		}
 
-	if !config.AllowAnonymousAccess {
-		handler := auth.NewAuthenticationMiddleware(config)
-		providers.Use(handler.AuthenticationHandler())
-	}
-
-	providers.GET("/:ns/:name/versions", pc.Versions)
-	providers.GET("/:ns/:name/:version/download/:os/:arch", pc.ProviderPackage)
+		r.Get("/{ns}/{name}/versions", pc.Versions)
+		r.Get("/{ns}/{name}/{version}/download/{os}/{arch}", pc.ProviderPackage)
+	})
 
 	return pc
 }
 
-func (p *ProviderController) ProviderPackage(c *gin.Context) {
+func (p *ProviderController) ProviderPackage(w http.ResponseWriter, r *http.Request) {
 	params := registrytypes.ProviderPackageParameters{
-		Namespace:    c.Param("ns"),
-		Name:         c.Param("name"),
-		Version:      c.Param("version"),
-		OS:           c.Param("os"),
-		Architecture: c.Param("arch"),
+		Namespace:    chi.URLParam(r, "ns"),
+		Name:         chi.URLParam(r, "name"),
+		Version:      chi.URLParam(r, "version"),
+		OS:           chi.URLParam(r, "os"),
+		Architecture: chi.URLParam(r, "arch"),
 	}
 
 	userParams := registrytypes.UserParameters{
 		Organization: params.Namespace,
 	}
 
-	provider, err := p.Backend.GetProvider(c.Request.Context(), params, userParams)
+	provider, err := p.Backend.GetProvider(r.Context(), params, userParams)
 	if err != nil {
 		log.Printf(err.Error())
-		errorResponse(c)
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if provider == nil {
-		errorResponseErrorNotFound(c, "Not Found")
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Not Found",
+		})
 		return
 	}
 
@@ -73,38 +78,42 @@ func (p *ProviderController) ProviderPackage(c *gin.Context) {
 
 	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", userParams.Organization, "private", params.Namespace, params.Name, params.Version)
 
-	downloadURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, provider.Filename))
-	shaSumURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSum))
-	shaSumSigURL, err := p.Storage.GenerateDownloadURL(c.Request.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
+	downloadURL, err := p.Storage.GenerateDownloadURL(r.Context(), fmt.Sprintf("%s/%s", key, provider.Filename))
+	shaSumURL, err := p.Storage.GenerateDownloadURL(r.Context(), fmt.Sprintf("%s/%s", key, shaSum))
+	shaSumSigURL, err := p.Storage.GenerateDownloadURL(r.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
 
 	provider.DownloadUrl = downloadURL
 	provider.ShasumsUrl = shaSumURL
 	provider.ShasumsSignatureUrl = shaSumSigURL
 
-	c.JSON(http.StatusOK, provider)
+	response.JsonResponse(w, http.StatusOK, provider)
 }
 
-func (p *ProviderController) Versions(c *gin.Context) {
+func (p *ProviderController) Versions(w http.ResponseWriter, r *http.Request) {
 	params := registrytypes.ProviderVersionParameters{
-		Namespace: c.Param("ns"),
-		Name:      c.Param("name"),
+		Namespace: chi.URLParam(r, "ns"),
+		Name:      chi.URLParam(r, "name"),
 	}
 
 	userParams := registrytypes.UserParameters{
 		Organization: params.Namespace,
 	}
 
-	provider, err := p.Backend.GetProviderVersions(c.Request.Context(), params, userParams)
+	provider, err := p.Backend.GetProviderVersions(r.Context(), params, userParams)
 	if err != nil {
 		log.Printf(err.Error())
-		errorResponse(c)
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if provider == nil {
-		errorResponseErrorNotFound(c, "Not Found")
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Not Found",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, provider)
+	response.JsonResponse(w, http.StatusOK, provider)
 }

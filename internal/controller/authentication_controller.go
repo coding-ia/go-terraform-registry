@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	registryauth "go-terraform-registry/internal/auth"
 	registryconfig "go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/githubclient"
+	"go-terraform-registry/internal/response"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"log"
@@ -18,12 +19,12 @@ type AuthenticationController struct {
 }
 
 type RegistryAuthenticationController interface {
-	Authorization(c *gin.Context)
-	Callback(c *gin.Context)
-	AccessToken(c *gin.Context)
+	Authorization(http.ResponseWriter, *http.Request)
+	Callback(http.ResponseWriter, *http.Request)
+	AccessToken(http.ResponseWriter, *http.Request)
 }
 
-func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryConfig) RegistryAuthenticationController {
+func NewAuthenticationController(router chi.Router, config registryconfig.RegistryConfig) RegistryAuthenticationController {
 	ac := &AuthenticationController{
 		Config: config,
 	}
@@ -47,65 +48,91 @@ func NewAuthenticationController(r *gin.Engine, config registryconfig.RegistryCo
 		Endpoint:     endpoint,
 	}
 
-	authentication := r.Group("/oauth")
-	{
-		authentication.GET("/authorization", ac.Authorization)
-		authentication.GET("/callback", ac.Callback)
-		authentication.POST("/token", ac.AccessToken)
-	}
+	router.Route("/oauth", func(r chi.Router) {
+		r.Get("/authorization", ac.Authorization)
+		r.Get("/callback", ac.Callback)
+		r.Post("/token", ac.AccessToken)
+	})
 
 	return ac
 }
 
-func (a *AuthenticationController) Authorization(c *gin.Context) {
-	state := c.Query("state")
+func (a *AuthenticationController) Authorization(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
 	url := a.OauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
-	redirectURL := c.Query("redirect_uri")
-	c.SetCookie("redirect-uri", redirectURL, 300, "/", "", true, true)
-
-	c.Redirect(http.StatusFound, url)
+	redirectURL := r.URL.Query().Get("redirect_uri")
+	http.SetCookie(w, &http.Cookie{
+		Name:     "redirect-uri",
+		Value:    redirectURL,
+		Path:     "/",
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
-func (a *AuthenticationController) Callback(c *gin.Context) {
-	state := c.Query("state")
-	code := c.Query("code")
+func (a *AuthenticationController) Callback(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
 
-	redirectUrl, err := c.Cookie("redirect-uri")
+	redirectUrl, err := r.Cookie("redirect-uri")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get redirect uri"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Failed to get redirect uri",
+		})
 		return
 	}
 
 	redirectURL := fmt.Sprintf("%s?code=%s&state=%s", redirectUrl, code, state)
-	c.Redirect(http.StatusFound, redirectURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-func (a *AuthenticationController) AccessToken(c *gin.Context) {
-	code := c.PostForm("code")
-	token, err := a.OauthConfig.Exchange(c.Request.Context(), code)
+func (a *AuthenticationController) AccessToken(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
+		response.JsonResponse(w, http.StatusBadRequest, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	client, err := githubclient.NewClient(c.Request.Context(), token.AccessToken, a.Config.GitHubEndpoint)
+	code := r.FormValue("code")
+	token, err := a.OauthConfig.Exchange(r.Context(), code)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create GitHub client connection"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Failed to exchange token",
+		})
 		return
 	}
 
-	userName, err := registryauth.GetGitHubUserName(c.Request.Context(), client, token.AccessToken)
+	client, err := githubclient.NewClient(r.Context(), token.AccessToken, a.Config.GitHubEndpoint)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get GitHub user name"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Unable to create GitHub client connection",
+		})
+		return
+	}
+
+	userName, err := registryauth.GetGitHubUserName(r.Context(), client, token.AccessToken)
+	if err != nil {
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Failed to get GitHub user name",
+		})
 		return
 	}
 
 	accessToken, err := registryauth.CreateJWTToken(*userName, []byte(a.Config.TokenEncryptionKey))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create access token"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Failed to create access token",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"access_token": accessToken})
+	response.JsonResponse(w, http.StatusOK, response.AccessTokenResponse{
+		Token: *accessToken,
+	})
 }

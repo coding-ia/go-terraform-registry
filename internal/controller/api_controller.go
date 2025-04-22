@@ -1,11 +1,13 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/response"
 	"go-terraform-registry/internal/storage"
 	"net/http"
 	"strings"
@@ -15,11 +17,12 @@ type APIController struct {
 	Config  registryconfig.RegistryConfig
 	Backend backend.Backend
 	Storage storage.RegistryProviderStorage
+	Chi     *chi.Mux
 }
 
 type RegistryAPIController interface {
-	CreateEndpoints(r *gin.Engine)
-	AuthenticateRequest(c *gin.Context)
+	CreateEndpoints(cr *chi.Mux)
+	AuthenticateRequestMiddleware(next http.Handler) http.Handler
 }
 
 func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryAPIController {
@@ -32,99 +35,118 @@ func NewAPIController(config registryconfig.RegistryConfig, backend backend.Back
 	return ac
 }
 
-func (a *APIController) CreateEndpoints(r *gin.Engine) {
-	endpoint := r.Group("/api", a.AuthenticateRequest)
+func (a *APIController) CreateEndpoints(cr *chi.Mux) {
+	cr.Route("/api", func(r chi.Router) {
+		r.Use(a.AuthenticateRequestMiddleware)
 
-	providerVersionsAPI := api.ProviderVersionsAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions", validateOrganization, providerVersionsAPI.CreateVersion)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/", validateOrganization, providerVersionsAPI.ListVersions)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.GetVersion)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.DeleteVersion)
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.CreatePlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.ListPlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.GetPlatform)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.DeletePlatform)
-
-	providersAPI := api.ProvidersAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.GET("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.List)
-	endpoint.POST("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Get)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Delete)
-
-	modulesAPI := api.ModulesAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules", validateOrganization, modulesAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", validateOrganization, modulesAPI.Get)
-
-	moduleVersionsAPI := api.ModuleVersionsAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", validateOrganization, moduleVersionsAPI.Create)
-	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version", validateOrganization, moduleVersionsAPI.Delete)
-
-	gpgKeysAPI := api.GPGKeysAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.GET("/registry/:registry/v2/gpg-keys", gpgKeysAPI.List)
-	endpoint.POST("/registry/private/v2/gpg-keys", gpgKeysAPI.Add)
-	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Get)
-	endpoint.PATCH("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Update)
-	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
-}
-
-func (a *APIController) AuthenticateRequest(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
-		return
-	}
-
-	const prefix = "Bearer "
-	if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
-		return
-	}
-
-	tokenString := authHeader[len(prefix):]
-	token, err := auth.GetJWTClaimsToken(tokenString, []byte(a.Config.TokenEncryptionKey))
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-	}
-
-	if token != nil && token.Valid {
-		if claims, ok := token.Claims.(*auth.RegistryClaims); ok {
-			c.Set("organization", claims.Organization)
+		providerVersionsAPI := api.ProviderVersionsAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
 		}
-	}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions", providerVersionsAPI.CreateVersion)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/", providerVersionsAPI.ListVersions)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.GetVersion)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.DeleteVersion)
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms", providerVersionsAPI.CreatePlatform)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms", providerVersionsAPI.ListPlatform)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms/{os}/{arch}", providerVersionsAPI.GetPlatform)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms/{os}/{arch}", providerVersionsAPI.DeletePlatform)
 
-	c.Next()
+		providersAPI := api.ProvidersAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers", providersAPI.List)
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers", providersAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}", providersAPI.Get)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}", providersAPI.Delete)
+
+		modulesAPI := api.ModulesAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-modules", modulesAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}", modulesAPI.Get)
+
+		moduleVersionsAPI := api.ModuleVersionsAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}/versions", moduleVersionsAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}/{version}", moduleVersionsAPI.Delete)
+
+		gpgKeysAPI := api.GPGKeysAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.Get("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.List)
+		r.Post("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.Add)
+		r.Get("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Get)
+		r.Patch("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Update)
+		r.Delete("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Delete)
+	})
 }
 
-func validateOrganization(c *gin.Context) {
-	organizationParam := c.Param("organization")
-	organization, exist := c.Get("organization")
-	if !exist {
-		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Missing organization"})
-		return
-	}
-	if !strings.EqualFold(organization.(string), organizationParam) {
-		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Invalid token for organization"})
-		return
-	}
-	c.Next()
+func (a *APIController) AuthenticateRequestMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: "Missing Authorization header",
+			})
+			return
+		}
+
+		const prefix = "Bearer "
+		if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: "Invalid Authorization header format",
+			})
+			return
+		}
+
+		tokenString := authHeader[len(prefix):]
+		token, err := auth.GetJWTClaimsToken(tokenString, []byte(a.Config.TokenEncryptionKey))
+		if err != nil {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: err.Error(),
+			})
+			return
+		}
+
+		if token != nil && token.Valid {
+			if claims, ok := token.Claims.(*auth.RegistryClaims); ok {
+				ctx := context.WithValue(r.Context(), "organization", claims.Organization)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}
+		}
+	})
+}
+
+func ValidateOrganizationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		organizationParam := chi.URLParam(r, "organization")
+		orgVal := r.Context().Value("organization")
+
+		if orgVal == nil {
+			response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+				Error: "Missing organization",
+			})
+			return
+		}
+
+		if !strings.EqualFold(orgVal.(string), organizationParam) {
+			response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+				Error: "Invalid token for organization",
+			})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
