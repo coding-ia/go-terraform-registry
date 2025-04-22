@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/response"
 	"go-terraform-registry/internal/storage"
 	"net/http"
 	"strings"
@@ -22,6 +24,7 @@ type APIController struct {
 type RegistryAPIController interface {
 	CreateEndpoints(r *gin.Engine, cr *chi.Mux)
 	AuthenticateRequest(c *gin.Context)
+	AuthenticateRequestMiddleware(next http.Handler) http.Handler
 }
 
 func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage, cr *chi.Mux) RegistryAPIController {
@@ -70,19 +73,9 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 	endpoint.POST("/v2/organizations/:organization/registry-modules", validateOrganization, modulesAPI.Create)
 	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", validateOrganization, modulesAPI.Get)
 
-	moduleVersionsAPI := api.ModuleVersionsAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions", validateOrganization, moduleVersionsAPI.Create)
-	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version", validateOrganization, moduleVersionsAPI.Delete)
+	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions")
+	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version")
 
-	gpgKeysAPI := api.GPGKeysAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
 	endpoint.GET("/registry/:registry/v2/gpg-keys")
 	endpoint.POST("/registry/private/v2/gpg-keys")
 	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
@@ -90,6 +83,21 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
 
 	cr.Route("/api", func(r chi.Router) {
+		r.Use(a.AuthenticateRequestMiddleware)
+		
+		moduleVersionsAPI := api.ModuleVersionsAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}/versions", moduleVersionsAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}/{version}", moduleVersionsAPI.Delete)
+
+		gpgKeysAPI := api.GPGKeysAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
 		r.Get("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.List)
 		r.Post("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.Add)
 		r.Get("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Get)
@@ -159,10 +167,61 @@ func validateOrganization(c *gin.Context) {
 	c.Next()
 }
 
-func isChiRoute(path string) bool {
-	if strings.Contains(path, "gpg-keys") {
-		return true
-	}
+func (a *APIController) AuthenticateRequestMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: "Missing Authorization header",
+			})
+			return
+		}
 
-	return false
+		const prefix = "Bearer "
+		if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: "Invalid Authorization header format",
+			})
+			return
+		}
+
+		tokenString := authHeader[len(prefix):]
+		token, err := auth.GetJWTClaimsToken(tokenString, []byte(a.Config.TokenEncryptionKey))
+		if err != nil {
+			response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+				Error: err.Error(),
+			})
+			return
+		}
+
+		if token != nil && token.Valid {
+			if claims, ok := token.Claims.(*auth.RegistryClaims); ok {
+				ctx := context.WithValue(r.Context(), "organization", claims.Organization)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			}
+		}
+	})
+}
+
+func ValidateOrganizationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		organizationParam := chi.URLParam(r, "organization")
+		orgVal := r.Context().Value("organization")
+
+		if orgVal == nil {
+			response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+				Error: "Missing organization",
+			})
+			return
+		}
+
+		if !strings.EqualFold(orgVal.(string), organizationParam) {
+			response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+				Error: "Invalid token for organization",
+			})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
