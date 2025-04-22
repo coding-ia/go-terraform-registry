@@ -65,13 +65,8 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Get)
 	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Delete)
 
-	modulesAPI := api.ModulesAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-modules", validateOrganization, modulesAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider", validateOrganization, modulesAPI.Get)
+	endpoint.POST("/v2/organizations/:organization/registry-modules")
+	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider")
 
 	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions")
 	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version")
@@ -84,7 +79,15 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 
 	cr.Route("/api", func(r chi.Router) {
 		r.Use(a.AuthenticateRequestMiddleware)
-		
+
+		modulesAPI := api.ModulesAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-modules", modulesAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-modules/{registry}/{namespace}/{name}/{provider}", modulesAPI.Get)
+
 		moduleVersionsAPI := api.ModuleVersionsAPI{
 			Config:  a.Config,
 			Backend: a.Backend,

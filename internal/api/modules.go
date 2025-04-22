@@ -1,8 +1,10 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/api/models"
+	"go-terraform-registry/internal/response"
 	registrytypes "go-terraform-registry/internal/types"
 	"net/http"
 	"strings"
@@ -10,18 +12,23 @@ import (
 
 type ModulesAPI api
 
-func (a *ModulesAPI) Create(c *gin.Context) {
+func (a *ModulesAPI) Create(w http.ResponseWriter, r *http.Request) {
 	var req models.ModulesRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	organization := c.Param("organization")
+	organization := chi.URLParam(r, "organization")
 
 	if !strings.EqualFold(organization, req.Data.Attributes.Namespace) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "namespace must match organization"})
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "namespace must match organization",
+		})
 		return
 	}
 
@@ -29,24 +36,28 @@ func (a *ModulesAPI) Create(c *gin.Context) {
 		Organization: organization,
 	}
 
-	resp, err := a.Backend.ModulesCreate(c.Request.Context(), parameters, req)
+	resp, err := a.Backend.ModulesCreate(r.Context(), parameters, req)
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	response.JsonResponse(w, http.StatusCreated, resp)
 }
 
-func (a *ModulesAPI) Get(c *gin.Context) {
-	organization := c.Param("organization")
-	registry := c.Param("registry")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
-	provider := c.Param("provider")
+func (a *ModulesAPI) Get(w http.ResponseWriter, r *http.Request) {
+	organization := chi.URLParam(r, "organization")
+	registry := chi.URLParam(r, "registry")
+	namespace := chi.URLParam(r, "namespace")
+	name := chi.URLParam(r, "name")
+	provider := chi.URLParam(r, "provider")
 
 	if !strings.EqualFold(organization, namespace) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "namespace must match organization"})
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "namespace must match organization",
+		})
 		return
 	}
 
@@ -58,11 +69,13 @@ func (a *ModulesAPI) Get(c *gin.Context) {
 		Provider:     provider,
 	}
 
-	resp, err := a.Backend.ModulesGet(c.Request.Context(), parameters)
+	resp, err := a.Backend.ModulesGet(r.Context(), parameters)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.JsonResponse(w, http.StatusNotFound, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	response.JsonResponse(w, http.StatusOK, resp)
 }
