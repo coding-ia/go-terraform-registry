@@ -23,7 +23,6 @@ type APIController struct {
 
 type RegistryAPIController interface {
 	CreateEndpoints(r *gin.Engine, cr *chi.Mux)
-	AuthenticateRequest(c *gin.Context)
 	AuthenticateRequestMiddleware(next http.Handler) http.Handler
 }
 
@@ -39,33 +38,8 @@ func NewAPIController(config registryconfig.RegistryConfig, backend backend.Back
 }
 
 func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
-	endpoint := r.Group("/api", a.CHIMigrate, a.AuthenticateRequest)
-
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions")
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/")
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version")
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version")
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms")
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms")
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch")
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch")
-
-	endpoint.GET("/v2/organizations/:organization/registry-providers")
-	endpoint.POST("/v2/organizations/:organization/registry-providers")
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name")
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name")
-
-	endpoint.POST("/v2/organizations/:organization/registry-modules")
-	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider")
-
-	endpoint.POST("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/versions")
-	endpoint.DELETE("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider/:version")
-
-	endpoint.GET("/registry/:registry/v2/gpg-keys")
-	endpoint.POST("/registry/private/v2/gpg-keys")
-	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
-	endpoint.PATCH("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
-	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
+	endpoint := r.Group("/api")
+	endpoint.Any("*any", gin.WrapH(cr))
 
 	cr.Route("/api", func(r chi.Router) {
 		r.Use(a.AuthenticateRequestMiddleware)
@@ -121,67 +95,6 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 		r.Patch("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Update)
 		r.Delete("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Delete)
 	})
-}
-
-func (a *APIController) CHIMigrate(c *gin.Context) {
-	ctx := chi.NewRouteContext()
-	match := a.Chi.Match(ctx, c.Request.Method, c.Request.URL.Path)
-
-	if match {
-		a.Chi.ServeHTTP(c.Writer, c.Request)
-		return
-	}
-
-	c.Next()
-}
-
-func (a *APIController) AuthenticateRequest(c *gin.Context) {
-	ctx := chi.NewRouteContext()
-	match := a.Chi.Match(ctx, c.Request.Method, c.Request.URL.Path)
-
-	if match {
-		return
-	}
-
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
-		return
-	}
-
-	const prefix = "Bearer "
-	if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
-		return
-	}
-
-	tokenString := authHeader[len(prefix):]
-	token, err := auth.GetJWTClaimsToken(tokenString, []byte(a.Config.TokenEncryptionKey))
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-	}
-
-	if token != nil && token.Valid {
-		if claims, ok := token.Claims.(*auth.RegistryClaims); ok {
-			c.Set("organization", claims.Organization)
-		}
-	}
-
-	c.Next()
-}
-
-func validateOrganization(c *gin.Context) {
-	organizationParam := c.Param("organization")
-	organization, exist := c.Get("organization")
-	if !exist {
-		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Missing organization"})
-		return
-	}
-	if !strings.EqualFold(organization.(string), organizationParam) {
-		c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "Invalid token for organization"})
-		return
-	}
-	c.Next()
 }
 
 func (a *APIController) AuthenticateRequestMiddleware(next http.Handler) http.Handler {
