@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/config/selector"
@@ -13,6 +14,8 @@ import (
 
 func StartServer(version string) {
 	ctx := context.Background()
+
+	cr := chi.NewRouter()
 
 	if version != "dev" {
 		gin.SetMode(gin.ReleaseMode)
@@ -49,9 +52,9 @@ func StartServer(version string) {
 	_ = controller.NewProviderController(r, c, *b, s)
 	_ = controller.NewModuleController(r, c, *b, s)
 	_ = controller.NewAuthenticationController(r, c)
-	apiController := controller.NewAPIController(c, *b, s)
+	apiController := controller.NewAPIController(c, *b, s, cr)
 
-	apiController.CreateEndpoints(r)
+	apiController.CreateEndpoints(r, cr)
 
 	err = r.SetTrustedProxies(nil)
 	if err != nil {

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
@@ -15,25 +16,27 @@ type APIController struct {
 	Config  registryconfig.RegistryConfig
 	Backend backend.Backend
 	Storage storage.RegistryProviderStorage
+	Chi     *chi.Mux
 }
 
 type RegistryAPIController interface {
-	CreateEndpoints(r *gin.Engine)
+	CreateEndpoints(r *gin.Engine, cr *chi.Mux)
 	AuthenticateRequest(c *gin.Context)
 }
 
-func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryAPIController {
+func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage, cr *chi.Mux) RegistryAPIController {
 	ac := &APIController{
 		Config:  config,
 		Backend: backend,
 		Storage: storage,
+		Chi:     cr,
 	}
 
 	return ac
 }
 
-func (a *APIController) CreateEndpoints(r *gin.Engine) {
-	endpoint := r.Group("/api", a.AuthenticateRequest)
+func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
+	endpoint := r.Group("/api", a.CHIMigrate, a.AuthenticateRequest)
 
 	providerVersionsAPI := api.ProviderVersionsAPI{
 		Config:  a.Config,
@@ -80,14 +83,41 @@ func (a *APIController) CreateEndpoints(r *gin.Engine) {
 		Backend: a.Backend,
 		Storage: a.Storage,
 	}
-	endpoint.GET("/registry/:registry/v2/gpg-keys", gpgKeysAPI.List)
-	endpoint.POST("/registry/private/v2/gpg-keys", gpgKeysAPI.Add)
-	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Get)
-	endpoint.PATCH("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Update)
-	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id", gpgKeysAPI.Delete)
+	endpoint.GET("/registry/:registry/v2/gpg-keys")
+	endpoint.POST("/registry/private/v2/gpg-keys")
+	endpoint.GET("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
+	endpoint.PATCH("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
+	endpoint.DELETE("/registry/:registry/v2/gpg-keys/:namespace/:key_id")
+
+	cr.Route("/api", func(r chi.Router) {
+		r.Get("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.List)
+		r.Post("/registry/{registry}/v2/gpg-keys", gpgKeysAPI.Add)
+		r.Get("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Get)
+		r.Patch("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Update)
+		r.Delete("/registry/{registry}/v2/gpg-keys/{namespace}/{key_id}", gpgKeysAPI.Delete)
+	})
+}
+
+func (a *APIController) CHIMigrate(c *gin.Context) {
+	ctx := chi.NewRouteContext()
+	match := a.Chi.Match(ctx, c.Request.Method, c.Request.URL.Path)
+
+	if match {
+		a.Chi.ServeHTTP(c.Writer, c.Request)
+		return
+	}
+
+	c.Next()
 }
 
 func (a *APIController) AuthenticateRequest(c *gin.Context) {
+	ctx := chi.NewRouteContext()
+	match := a.Chi.Match(ctx, c.Request.Method, c.Request.URL.Path)
+
+	if match {
+		return
+	}
+
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
@@ -127,4 +157,12 @@ func validateOrganization(c *gin.Context) {
 		return
 	}
 	c.Next()
+}
+
+func isChiRoute(path string) bool {
+	if strings.Contains(path, "gpg-keys") {
+		return true
+	}
+
+	return false
 }

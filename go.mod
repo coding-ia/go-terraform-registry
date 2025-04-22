@@ -23,6 +23,11 @@ require (
 )
 
 require (
+	github.com/gin-gonic/gin v1.10.0
+	github.com/go-chi/chi/v5 v5.2.1
+)
+
+require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect

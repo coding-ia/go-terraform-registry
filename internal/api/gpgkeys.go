@@ -1,41 +1,55 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"encoding/json"
 	"go-terraform-registry/internal/api/models"
+	"go-terraform-registry/internal/response"
 	"net/http"
 )
 
 type GPGKeysAPI api
 
-func (a *GPGKeysAPI) List(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "This endpoint is not implemented yet."})
+func (a *GPGKeysAPI) List(w http.ResponseWriter, _ *http.Request) {
+	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
+		Error: "This endpoint is not implemented yet.",
+	})
 }
 
-func (a *GPGKeysAPI) Add(c *gin.Context) {
+func (a *GPGKeysAPI) Add(w http.ResponseWriter, r *http.Request) {
 	var req models.GPGKeysRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-	resp, err := a.Backend.GPGKeysAdd(c.Request.Context(), req)
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+	resp, err := a.Backend.GPGKeysAdd(r.Context(), req)
+	if err != nil {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	response.JsonResponse(w, http.StatusCreated, resp)
 }
 
-func (a *GPGKeysAPI) Get(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "This endpoint is not implemented yet."})
+func (a *GPGKeysAPI) Get(w http.ResponseWriter, _ *http.Request) {
+	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
+		Error: "This endpoint is not implemented yet.",
+	})
 }
 
-func (a *GPGKeysAPI) Update(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "This endpoint is not implemented yet."})
+func (a *GPGKeysAPI) Update(w http.ResponseWriter, _ *http.Request) {
+	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
+		Error: "This endpoint is not implemented yet.",
+	})
 }
 
-func (a *GPGKeysAPI) Delete(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "This endpoint is not implemented yet."})
+func (a *GPGKeysAPI) Delete(w http.ResponseWriter, _ *http.Request) {
+	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
+		Error: "This endpoint is not implemented yet.",
+	})
 }

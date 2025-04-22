@@ -11,14 +11,6 @@ func errorResponse(c *gin.Context) {
 	})
 }
 
-func errorResponseWithMessage(c *gin.Context, status string) {
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"errors": []string{
-			status,
-		},
-	})
-}
-
 func errorResponseErrorNotFound(c *gin.Context, status string) {
 	c.JSON(http.StatusNotFound, gin.H{
 		"errors": []string{
