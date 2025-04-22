@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/api"
 	"go-terraform-registry/internal/auth"
@@ -22,25 +21,21 @@ type APIController struct {
 }
 
 type RegistryAPIController interface {
-	CreateEndpoints(r *gin.Engine, cr *chi.Mux)
+	CreateEndpoints(cr *chi.Mux)
 	AuthenticateRequestMiddleware(next http.Handler) http.Handler
 }
 
-func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage, cr *chi.Mux) RegistryAPIController {
+func NewAPIController(config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryAPIController {
 	ac := &APIController{
 		Config:  config,
 		Backend: backend,
 		Storage: storage,
-		Chi:     cr,
 	}
 
 	return ac
 }
 
-func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
-	endpoint := r.Group("/api")
-	endpoint.Any("*any", gin.WrapH(cr))
-
+func (a *APIController) CreateEndpoints(cr *chi.Mux) {
 	cr.Route("/api", func(r chi.Router) {
 		r.Use(a.AuthenticateRequestMiddleware)
 

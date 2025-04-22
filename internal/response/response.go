@@ -11,6 +11,10 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+type AccessTokenResponse struct {
+	Token string `json:"access_token"`
+}
+
 func JsonResponse(w http.ResponseWriter, httpStatus int, response any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)

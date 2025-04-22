@@ -1,7 +1,8 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
+	"log"
 	"net/http"
 )
 
@@ -9,18 +10,18 @@ type ServiceController struct {
 }
 
 type RegistryServiceController interface {
-	ServiceDiscovery(*gin.Context)
+	ServiceDiscovery(http.ResponseWriter, *http.Request)
 }
 
-func NewServiceController(r *gin.Engine) RegistryServiceController {
+func NewServiceController(r chi.Router) RegistryServiceController {
 	sc := &ServiceController{}
 
-	r.GET(".well-known/terraform.json", sc.ServiceDiscovery)
+	r.Get("/.well-known/terraform.json", sc.ServiceDiscovery)
 
 	return sc
 }
 
-func (s ServiceController) ServiceDiscovery(c *gin.Context) {
+func (s ServiceController) ServiceDiscovery(w http.ResponseWriter, r *http.Request) {
 	serviceData := `
 {
 	"providers.v1": "/terraform/providers/v1/",
@@ -36,5 +37,9 @@ func (s ServiceController) ServiceDiscovery(c *gin.Context) {
 }
 `
 
-	c.Data(http.StatusOK, "application/json", []byte(serviceData))
+	w.Header().Set("Content-Type", "application/json")
+	_, err := w.Write([]byte(serviceData))
+	if err != nil {
+		log.Println("ERROR: ServiceDiscovery", err)
+	}
 }

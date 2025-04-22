@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/auth"
 	"go-terraform-registry/internal/backend"
 	registryconfig "go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/response"
 	"go-terraform-registry/internal/storage"
 	registrytypes "go-terraform-registry/internal/types"
 	"log"
@@ -18,77 +19,87 @@ type ModuleController struct {
 }
 
 type RegistryModuleController interface {
-	ModuleDownload(*gin.Context)
-	Versions(*gin.Context)
+	ModuleDownload(http.ResponseWriter, *http.Request)
+	Versions(http.ResponseWriter, *http.Request)
 }
 
-func NewModuleController(r *gin.Engine, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryModuleController {
+func NewModuleController(router chi.Router, config registryconfig.RegistryConfig, backend backend.Backend, storage storage.RegistryProviderStorage) RegistryModuleController {
 	mc := &ModuleController{
 		Config:  config,
 		Backend: backend,
 		Storage: storage,
 	}
 
-	modules := r.Group("/terraform/modules/v1")
+	router.Route("/terraform/modules/v1", func(r chi.Router) {
+		if !config.AllowAnonymousAccess {
+			handler := auth.NewAuthenticationMiddleware(config)
+			r.Use(handler.AuthenticationHandlerMiddleware)
+		}
 
-	if !config.AllowAnonymousAccess {
-		handler := auth.NewAuthenticationMiddleware(config)
-		modules.Use(handler.AuthenticationHandler())
-	}
-
-	modules.GET("/:ns/:name/:system/versions", mc.Versions)
-	modules.GET("/:ns/:name/:system/:version/download", mc.ModuleDownload)
+		r.Get("/{ns}/{name}/{system}/versions", mc.Versions)
+		r.Get("/{ns}/{name}/{system}/{version}/download", mc.ModuleDownload)
+	})
 
 	return mc
 }
 
-func (m *ModuleController) ModuleDownload(c *gin.Context) {
+func (m *ModuleController) ModuleDownload(w http.ResponseWriter, r *http.Request) {
 	params := registrytypes.ModuleDownloadParameters{
-		Namespace: c.Param("ns"),
-		Name:      c.Param("name"),
-		System:    c.Param("system"),
-		Version:   c.Param("version"),
+		Namespace: chi.URLParam(r, "ns"),
+		Name:      chi.URLParam(r, "name"),
+		System:    chi.URLParam(r, "system"),
+		Version:   chi.URLParam(r, "version"),
 	}
 
-	path, err := m.Backend.GetModuleDownload(c.Request.Context(), params)
+	path, err := m.Backend.GetModuleDownload(r.Context(), params)
 	if err != nil {
 		log.Printf(err.Error())
-		errorResponse(c)
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if path == nil {
-		errorResponseErrorNotFound(c, "Not Found")
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Not Found",
+		})
 		return
 	}
 
-	uri, err := m.Storage.GenerateDownloadURL(c.Request.Context(), *path)
+	uri, err := m.Storage.GenerateDownloadURL(r.Context(), *path)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating download url."})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Error generating download url.",
+		})
 	}
 
-	c.Header("X-Terraform-Get", uri)
-	c.Status(http.StatusNoContent)
+	w.Header().Set("X-Terraform-Get", uri)
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (m *ModuleController) Versions(c *gin.Context) {
+func (m *ModuleController) Versions(w http.ResponseWriter, r *http.Request) {
 	params := registrytypes.ModuleVersionParameters{
-		Namespace: c.Param("ns"),
-		Name:      c.Param("name"),
-		System:    c.Param("system"),
+		Namespace: chi.URLParam(r, "ns"),
+		Name:      chi.URLParam(r, "name"),
+		System:    chi.URLParam(r, "system"),
 	}
 
-	module, err := m.Backend.GetModuleVersions(c.Request.Context(), params)
+	module, err := m.Backend.GetModuleVersions(r.Context(), params)
 	if err != nil {
 		log.Printf(err.Error())
-		errorResponse(c)
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: err.Error(),
+		})
 		return
 	}
 
 	if module == nil {
-		errorResponseErrorNotFound(c, "Not Found")
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "Not Found",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, module)
+	response.JsonResponse(w, http.StatusOK, module)
 }

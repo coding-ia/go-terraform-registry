@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
@@ -10,20 +10,16 @@ import (
 	"go-terraform-registry/internal/controller"
 	"go-terraform-registry/internal/storage"
 	"log"
+	"net/http"
 )
 
 func StartServer(version string) {
 	ctx := context.Background()
 
+	log.Println("Starting server...")
+	log.Println(fmt.Sprintf("Version: %s", version))
+
 	cr := chi.NewRouter()
-
-	if version != "dev" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
-	gin.DefaultWriter = log.Writer()
-	r := gin.Default()
-	r.Use(gin.LoggerWithWriter(log.Writer()))
 
 	// Get configuration and select backend
 	c := config.GetRegistryConfig()
@@ -44,24 +40,18 @@ func StartServer(version string) {
 	s := selector.SelectStorage(ctx, c)
 	if sae, ok := s.(storage.RegistryProviderStorageAssetEndpoint); ok {
 		sae.ConfigureEndpoint(ctx, cr)
-		endpoint := r.Group("/asset")
-		endpoint.Any("*any", gin.WrapH(cr))
 	}
 
 	// Configure controllers
-	_ = controller.NewServiceController(r)
-	_ = controller.NewProviderController(r, c, *b, s)
-	_ = controller.NewModuleController(r, c, *b, s)
-	_ = controller.NewAuthenticationController(r, c)
-	apiController := controller.NewAPIController(c, *b, s, cr)
+	_ = controller.NewServiceController(cr)
+	_ = controller.NewProviderController(cr, c, *b, s)
+	_ = controller.NewModuleController(cr, c, *b, s)
+	_ = controller.NewAuthenticationController(cr, c)
 
-	apiController.CreateEndpoints(r, cr)
+	apiController := controller.NewAPIController(c, *b, s)
+	apiController.CreateEndpoints(cr)
 
-	err = r.SetTrustedProxies(nil)
-	if err != nil {
-		panic(err)
-	}
-	err = r.Run()
+	err = http.ListenAndServe(":8080", cr)
 	if err != nil {
 		panic(err)
 	}
