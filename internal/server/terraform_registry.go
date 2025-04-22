@@ -43,8 +43,9 @@ func StartServer(version string) {
 	// Configure storage
 	s := selector.SelectStorage(ctx, c)
 	if sae, ok := s.(storage.RegistryProviderStorageAssetEndpoint); ok {
-		assetEndpoint := r.Group("/asset")
-		sae.ConfigureEndpoint(ctx, assetEndpoint)
+		sae.ConfigureEndpoint(ctx, cr)
+		endpoint := r.Group("/asset")
+		endpoint.Any("*any", gin.WrapH(cr))
 	}
 
 	// Configure controllers

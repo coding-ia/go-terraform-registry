@@ -5,9 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 	"go-terraform-registry/internal/config"
+	"go-terraform-registry/internal/response"
 	"go-terraform-registry/internal/storage"
 	"io"
 	"log"
@@ -38,8 +39,8 @@ type AssetEndpoint struct {
 }
 
 type LocalStorageAssetEndpoint interface {
-	UploadFile(*gin.Context)
-	DownloadFile(*gin.Context)
+	UploadFile(http.ResponseWriter, *http.Request)
+	DownloadFile(http.ResponseWriter, *http.Request)
 }
 
 func NewLocalStorage(config config.RegistryConfig) storage.RegistryProviderStorage {
@@ -53,7 +54,7 @@ type AssetClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.RouterGroup) {
+func (l *LocalStorage) ConfigureEndpoint(_ context.Context, cr *chi.Mux) {
 	ae := &AssetEndpoint{
 		secretKey: l.secretKey,
 	}
@@ -67,9 +68,11 @@ func (l *LocalStorage) ConfigureEndpoint(_ context.Context, routerGroup *gin.Rou
 	log.Printf("Local Storage Endpoint: %s", l.Endpoint)
 	log.Printf("Local Storage Asset Path: %s", ae.AssetPath)
 
-	routerGroup.PUT("/upload/:token", ae.UploadFile)
-	routerGroup.HEAD("/download/:token/:file", ae.DownloadFile)
-	routerGroup.GET("/download/:token/:file", ae.DownloadFile)
+	cr.Route("/asset", func(r chi.Router) {
+		r.Put("/upload/{token}", ae.UploadFile)
+		r.Head("/download/{token}/{file}", ae.DownloadFile)
+		r.Get("/download/{token}/{file}", ae.DownloadFile)
+	})
 }
 
 func (l *LocalStorage) ConfigureStorage(_ context.Context) error {
@@ -118,31 +121,35 @@ func (l *LocalStorage) GenerateDownloadURL(_ context.Context, filePath string) (
 	return url, nil
 }
 
-func (a *AssetEndpoint) UploadFile(c *gin.Context) {
-	chunkNumber := c.GetHeader("Chunk-Number")
+func (a *AssetEndpoint) UploadFile(w http.ResponseWriter, r *http.Request) {
+	chunkNumber := r.Header.Get("Chunk-Number")
 
 	if chunkNumber == "" {
-		uploadFile(c, a.AssetPath, a.secretKey)
+		uploadFile(w, r, a.AssetPath, a.secretKey)
 	} else {
-		uploadFileChunk(c, a.AssetPath, a.secretKey)
+		uploadFileChunk(w, r, a.AssetPath, a.secretKey)
 	}
 }
 
-func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
-	tokenString := c.Param("token")
-	_ = c.Param("file")
+func (a *AssetEndpoint) DownloadFile(w http.ResponseWriter, r *http.Request) {
+	tokenString := chi.URLParam(r, "token")
+	_ = chi.URLParam(r, "file")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.secretKey, nil
 	})
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid or expired token",
+		})
 		return
 	}
 
 	claims, ok := token.Claims.(*AssetClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid claims",
+		})
 		return
 	}
 
@@ -150,18 +157,20 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	joinedPath := filepath.Join(a.AssetPath, convertedPath)
 	fileName := path.Base(joinedPath)
 
-	if c.Request.Method == http.MethodHead {
+	if r.Method == http.MethodHead {
 		log.Printf("HEAD request for file: %s", joinedPath)
 		fileInfo, err := os.Stat(joinedPath)
 		if err != nil {
 			log.Printf("File not found: %s", joinedPath)
-			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			response.JsonResponse(w, http.StatusNotFound, response.ErrorResponse{
+				Error: "file not found",
+			})
 			return
 		}
 
-		c.Header("Content-Type", "application/octet-stream")
-		c.Header("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
-		c.Status(http.StatusOK)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+		w.WriteHeader(http.StatusOK)
 
 		return
 	}
@@ -169,11 +178,13 @@ func (a *AssetEndpoint) DownloadFile(c *gin.Context) {
 	_, err = os.Stat(joinedPath)
 	if err != nil {
 		log.Printf("File not found: %s", joinedPath)
-		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		response.JsonResponse(w, http.StatusNotFound, response.ErrorResponse{
+			Error: "file not found",
+		})
 		return
 	}
 
-	c.FileAttachment(joinedPath, fileName)
+	response.FileResponse(w, r, joinedPath, fileName)
 }
 
 func (l *LocalStorage) RemoveFile(_ context.Context, path string) error {
@@ -190,26 +201,32 @@ func (l *LocalStorage) RemoveFile(_ context.Context, path string) error {
 	return err
 }
 
-func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {
-	tokenString := c.Param("token")
+func uploadFile(w http.ResponseWriter, r *http.Request, assetPath string, secretKey []byte) {
+	tokenString := chi.URLParam(r, "token")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil
 	})
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid or expired token",
+		})
 		return
 	}
 
 	claims, ok := token.Claims.(*AssetClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid claims",
+		})
 		return
 	}
 
-	fileData, err := c.GetRawData()
+	fileData, err := io.ReadAll(r.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "failed to read file",
+		})
 		return
 	}
 
@@ -217,52 +234,67 @@ func uploadFile(c *gin.Context, assetPath string, secretKey []byte) {
 	joinedPath := filepath.Join(assetPath, convertedPath)
 	directoryPath := filepath.Dir(joinedPath)
 	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create provider directory"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "unable to create provider directory",
+		})
 		return
 	}
 	if err := os.WriteFile(joinedPath, fileData, 0644); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "failed to save file",
+		})
 		return
 	}
 }
 
-func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
-	tokenString := c.Param("token")
+func uploadFileChunk(w http.ResponseWriter, r *http.Request, assetPath string, secretKey []byte) {
+	tokenString := chi.URLParam(r, "token")
 
 	token, err := jwt.ParseWithClaims(tokenString, &AssetClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil
 	})
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid or expired token",
+		})
 		return
 	}
 
 	claims, ok := token.Claims.(*AssetClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		response.JsonResponse(w, http.StatusUnauthorized, response.ErrorResponse{
+			Error: "invalid claims",
+		})
 		return
 	}
 
 	filePath := claims.Filename
 	fileName := path.Base(filePath)
-	chunkNumberStr := c.GetHeader("Chunk-Number")
-	totalChunksStr := c.GetHeader("Total-Chunks")
+
+	chunkNumberStr := r.Header.Get("Chunk-Number")
+	totalChunksStr := r.Header.Get("Total-Chunks")
 
 	chunkNumber, err := strconv.Atoi(chunkNumberStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Chunk-Number"})
+		response.JsonResponse(w, http.StatusBadRequest, response.ErrorResponse{
+			Error: "Invalid Chunk-Number",
+		})
 		return
 	}
 
 	totalChunks, err := strconv.Atoi(totalChunksStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Total-Chunks"})
+		response.JsonResponse(w, http.StatusBadRequest, response.ErrorResponse{
+			Error: "Invalid Total-Chunks",
+		})
 		return
 	}
 
-	chunkData, err := c.GetRawData()
+	chunkData, err := io.ReadAll(r.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read chunk data"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "failed to read chunk data",
+		})
 		return
 	}
 
@@ -274,18 +306,24 @@ func uploadFileChunk(c *gin.Context, assetPath string, secretKey []byte) {
 	chunkedFilePath := filepath.Join(directoryPath, chunkedFileName)
 
 	if err := os.MkdirAll(directoryPath, os.ModePerm); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create provider directory"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "unable to create provider directory",
+		})
 		return
 	}
 	if err := os.WriteFile(chunkedFilePath, chunkData, 0644); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+			Error: "failed to save file",
+		})
 		return
 	}
 
 	if chunkNumber == totalChunks {
 		err = assembleFile(directoryPath, fileName, totalChunks)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assemble file"})
+			response.JsonResponse(w, http.StatusInternalServerError, response.ErrorResponse{
+				Error: "Failed to assemble file",
+			})
 			return
 		}
 	}

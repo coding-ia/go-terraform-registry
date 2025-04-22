@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -17,4 +18,11 @@ func JsonResponse(w http.ResponseWriter, httpStatus int, response any) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func FileResponse(w http.ResponseWriter, r *http.Request, filePath string, fileName string) {
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
+	w.Header().Set("Content-Type", "application/octet-stream")
+
+	http.ServeFile(w, r, filePath)
 }
