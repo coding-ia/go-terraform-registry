@@ -41,29 +41,19 @@ func NewAPIController(config registryconfig.RegistryConfig, backend backend.Back
 func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 	endpoint := r.Group("/api", a.CHIMigrate, a.AuthenticateRequest)
 
-	providerVersionsAPI := api.ProviderVersionsAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions", validateOrganization, providerVersionsAPI.CreateVersion)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/", validateOrganization, providerVersionsAPI.ListVersions)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.GetVersion)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version", validateOrganization, providerVersionsAPI.DeleteVersion)
-	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.CreatePlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms", validateOrganization, providerVersionsAPI.ListPlatform)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.GetPlatform)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch", validateOrganization, providerVersionsAPI.DeletePlatform)
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions")
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/")
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version")
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version")
+	endpoint.POST("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms")
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms")
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch")
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name/versions/:version/platforms/:os/:arch")
 
-	providersAPI := api.ProvidersAPI{
-		Config:  a.Config,
-		Backend: a.Backend,
-		Storage: a.Storage,
-	}
-	endpoint.GET("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.List)
-	endpoint.POST("/v2/organizations/:organization/registry-providers", validateOrganization, providersAPI.Create)
-	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Get)
-	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name", validateOrganization, providersAPI.Delete)
+	endpoint.GET("/v2/organizations/:organization/registry-providers")
+	endpoint.POST("/v2/organizations/:organization/registry-providers")
+	endpoint.GET("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name")
+	endpoint.DELETE("/v2/organizations/:organization/registry-providers/:registry/:namespace/:name")
 
 	endpoint.POST("/v2/organizations/:organization/registry-modules")
 	endpoint.GET("/v2/organizations/:organization/registry-modules/:registry/:namespace/:name/:provider")
@@ -79,6 +69,30 @@ func (a *APIController) CreateEndpoints(r *gin.Engine, cr *chi.Mux) {
 
 	cr.Route("/api", func(r chi.Router) {
 		r.Use(a.AuthenticateRequestMiddleware)
+
+		providerVersionsAPI := api.ProviderVersionsAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions", providerVersionsAPI.CreateVersion)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/", providerVersionsAPI.ListVersions)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.GetVersion)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.DeleteVersion)
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms", providerVersionsAPI.CreatePlatform)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms", providerVersionsAPI.ListPlatform)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms/{os}/{arch}", providerVersionsAPI.GetPlatform)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms/{os}/{arch}", providerVersionsAPI.DeletePlatform)
+
+		providersAPI := api.ProvidersAPI{
+			Config:  a.Config,
+			Backend: a.Backend,
+			Storage: a.Storage,
+		}
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers", providersAPI.List)
+		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers", providersAPI.Create)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}", providersAPI.Get)
+		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}", providersAPI.Delete)
 
 		modulesAPI := api.ModulesAPI{
 			Config:  a.Config,
