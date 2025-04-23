@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/config"
 	"go-terraform-registry/internal/config/selector"
@@ -11,15 +12,17 @@ import (
 	"go-terraform-registry/internal/storage"
 	"log"
 	"net/http"
+	"os"
 )
 
 func StartServer(version string) {
 	ctx := context.Background()
 
-	log.Println("Starting server...")
+	log.SetOutput(os.Stdout)
 	log.Println(fmt.Sprintf("Version: %s", version))
 
 	cr := chi.NewRouter()
+	cr.Use(middleware.Logger)
 
 	// Get configuration and select backend
 	c := config.GetRegistryConfig()
