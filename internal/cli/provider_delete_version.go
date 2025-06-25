@@ -15,7 +15,6 @@ type ProviderVersionDeleteOptions struct {
 	Registry     string
 	Namespace    string
 	Name         string
-	Provider     string
 	Version      string
 }
 
@@ -46,7 +45,6 @@ func init() {
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Registry, "registry", "private", "Registry name")
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Namespace, "namespace", "", "Module namespace")
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Name, "name", "", "Module namespace")
-	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Provider, "provider", "", "Module provider")
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Version, "version", "", "Module version")
 	providerVersionDeleteCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
@@ -54,7 +52,6 @@ func init() {
 	_ = providerVersionDeleteCmd.MarkFlagRequired("organization")
 	_ = providerVersionDeleteCmd.MarkFlagRequired("name")
 	_ = providerVersionDeleteCmd.MarkFlagRequired("namespace")
-	_ = providerVersionDeleteCmd.MarkFlagRequired("provider")
 	_ = providerVersionDeleteCmd.MarkFlagRequired("version")
 }
 
@@ -73,7 +70,7 @@ func deleteProviderVersion(_ context.Context) {
 }
 
 func DeleteProviderVersionRequest(client *api_client.APIClient, endpoint string) (int, error) {
-	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/%s/%s", providerVersionDeleteOptions.Organization, providerVersionDeleteOptions.Registry, providerVersionDeleteOptions.Namespace, providerVersionDeleteOptions.Name, providerVersionDeleteOptions.Provider, providerVersionDeleteOptions.Version)
+	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/%s", providerVersionDeleteOptions.Organization, providerVersionDeleteOptions.Registry, providerVersionDeleteOptions.Namespace, providerVersionDeleteOptions.Name, providerVersionDeleteOptions.Version)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	statusCode, err := client.DeleteRequest(url)
