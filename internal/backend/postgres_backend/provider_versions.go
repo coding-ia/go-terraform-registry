@@ -6,6 +6,7 @@ import (
 	"go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	registrytypes "go-terraform-registry/internal/types"
+	"net/http"
 )
 
 var _ backend.ProviderVersionsBackend = &PostgresBackend{}
@@ -86,6 +87,21 @@ func (p *PostgresBackend) ProviderVersionsGet(ctx context.Context, parameters re
 	}
 
 	return resp, nil
+}
+
+func (p *PostgresBackend) ProviderVersionsDelete(ctx context.Context, parameters registrytypes.APIParameters) (int, error) {
+	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	if err != nil {
+		return -1, err
+	}
+	if provider == nil {
+		return -1, fmt.Errorf("provider not found")
+	}
+	err = providerVersionDelete(ctx, p.db, provider.ID, parameters.Version)
+	if err != nil {
+		return http.StatusNotFound, err
+	}
+	return http.StatusNoContent, nil
 }
 
 func (p *PostgresBackend) ProviderVersionPlatformsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionPlatformsRequest) (*models.ProviderVersionPlatformsResponse, error) {

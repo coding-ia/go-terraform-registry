@@ -104,3 +104,7 @@ func (d *DynamoDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, pa
 
 	return resp, nil
 }
+
+func (d *DynamoDBBackend) ProviderVersionsDelete(ctx context.Context, parameters registrytypes.APIParameters) (int, error) {
+	return -1, nil
+}

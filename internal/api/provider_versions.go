@@ -7,6 +7,7 @@ import (
 	"go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/response"
 	registrytypes "go-terraform-registry/internal/types"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -120,10 +121,50 @@ func (a *ProviderVersionsAPI) GetVersion(w http.ResponseWriter, r *http.Request)
 	response.JsonResponse(w, http.StatusOK, resp)
 }
 
-func (a *ProviderVersionsAPI) DeleteVersion(w http.ResponseWriter, _ *http.Request) {
-	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
-		Error: "This endpoint is not implemented yet.",
-	})
+func (a *ProviderVersionsAPI) DeleteVersion(w http.ResponseWriter, r *http.Request) {
+	organization := chi.URLParam(r, "organization")
+	registry := chi.URLParam(r, "registry")
+	namespace := chi.URLParam(r, "namespace")
+	name := chi.URLParam(r, "name")
+	version := chi.URLParam(r, "version")
+
+	if registry != "private" {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "registry must be private",
+		})
+		return
+	}
+
+	if !strings.EqualFold(organization, namespace) {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "namespace must match organization",
+		})
+		return
+	}
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+		Version:      version,
+	}
+
+	statusCode, err := a.Backend.ProviderVersionsDelete(r.Context(), parameters)
+	if err != nil {
+		response.JsonResponse(w, statusCode, response.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, parameters.Version)
+	err = a.Storage.RemoveDirectory(r.Context(), key)
+	if err != nil {
+		log.Printf("Error removing directory: %s", err.Error())
+	}
+	
+	w.WriteHeader(statusCode)
 }
 
 func (a *ProviderVersionsAPI) CreatePlatform(w http.ResponseWriter, r *http.Request) {
