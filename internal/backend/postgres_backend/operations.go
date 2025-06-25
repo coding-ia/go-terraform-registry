@@ -347,6 +347,17 @@ func providerVersionSelect(ctx context.Context, db *pgxpool.Pool, providerId str
 	return &providerVersion, nil
 }
 
+func providerVersionDelete(ctx context.Context, db *pgxpool.Pool, providerId string, version string) error {
+	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
+		query := `
+			DELETE FROM provider_versions
+			WHERE provider_id = $1 AND version = $2;
+	`
+		_, err := tx.Exec(ctx, query, providerId, version)
+		return err
+	})
+}
+
 func providerVersionPlatformInsert(ctx context.Context, db *pgxpool.Pool, value *ProviderPlatform) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `

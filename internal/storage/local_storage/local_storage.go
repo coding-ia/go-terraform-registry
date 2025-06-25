@@ -201,6 +201,15 @@ func (l *LocalStorage) RemoveFile(_ context.Context, path string) error {
 	return err
 }
 
+func (l *LocalStorage) RemoveDirectory(ctx context.Context, path string) error {
+	log.Printf("Removing directory: %s", path)
+
+	convertedPath := filepath.FromSlash(path)
+	joinedPath := filepath.Join(l.AssetPath, convertedPath)
+
+	return os.RemoveAll(joinedPath)
+}
+
 func uploadFile(w http.ResponseWriter, r *http.Request, assetPath string, secretKey []byte) {
 	tokenString := chi.URLParam(r, "token")
 

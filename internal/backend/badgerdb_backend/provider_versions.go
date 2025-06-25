@@ -164,3 +164,7 @@ func (b *BadgerDBBackend) ProviderVersionPlatformsCreate(ctx context.Context, pa
 
 	return resp, nil
 }
+
+func (b *BadgerDBBackend) ProviderVersionsDelete(ctx context.Context, parameters registrytypes.APIParameters) (int, error) {
+	return -1, nil
+}
