@@ -70,7 +70,7 @@ func deleteProviderVersion(_ context.Context) {
 }
 
 func DeleteProviderVersionRequest(client *api_client.APIClient, endpoint string) (int, error) {
-	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/%s", providerVersionDeleteOptions.Organization, providerVersionDeleteOptions.Registry, providerVersionDeleteOptions.Namespace, providerVersionDeleteOptions.Name, providerVersionDeleteOptions.Version)
+	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s", providerVersionDeleteOptions.Organization, providerVersionDeleteOptions.Registry, providerVersionDeleteOptions.Namespace, providerVersionDeleteOptions.Name, providerVersionDeleteOptions.Version)
 	url := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	statusCode, err := client.DeleteRequest(url)
