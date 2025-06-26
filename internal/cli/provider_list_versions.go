@@ -55,20 +55,20 @@ func init() {
 func listProviderVersion(_ context.Context) {
 	client := api_client.NewAPIClient(authenticationOptions.Token)
 
-	gpgKeyListResponse, _, err := ListProviderVersionsRequest(client, gpgListOptions.Endpoint)
+	providerVersionsListResponse, _, err := ListProviderVersionsRequest(client, gpgListOptions.Endpoint)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	fmt.Println("Provider versions:")
-	for _, gpgKeyData := range gpgKeyListResponse.Data {
-		fmt.Println(gpgKeyData.Attributes.KeyID)
+	for _, providerVersionData := range providerVersionsListResponse.Data {
+		fmt.Println(providerVersionData.Attributes.Version)
 	}
 }
 
 func ListProviderVersionsRequest(client *api_client.APIClient, endpoint string) (*models.ProviderVersionsListResponse, int, error) {
-	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions", providerVersionDeleteOptions.Organization, providerVersionDeleteOptions.Registry, providerVersionDeleteOptions.Namespace, providerVersionDeleteOptions.Name)
+	apiEndpoint := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions", providerVersionListOptions.Organization, providerVersionListOptions.Registry, providerVersionListOptions.Namespace, providerVersionListOptions.Name)
 	fullUrl := fmt.Sprintf("%s%s", endpoint, apiEndpoint)
 
 	var response models.ProviderVersionsListResponse
