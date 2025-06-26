@@ -45,7 +45,7 @@ func (a *APIController) CreateEndpoints(cr *chi.Mux) {
 			Storage: a.Storage,
 		}
 		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions", providerVersionsAPI.CreateVersion)
-		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/", providerVersionsAPI.ListVersions)
+		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions", providerVersionsAPI.ListVersions)
 		r.With(ValidateOrganizationMiddleware).Get("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.GetVersion)
 		r.With(ValidateOrganizationMiddleware).Delete("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}", providerVersionsAPI.DeleteVersion)
 		r.With(ValidateOrganizationMiddleware).Post("/v2/organizations/{organization}/registry-providers/{registry}/{namespace}/{name}/versions/{version}/platforms", providerVersionsAPI.CreatePlatform)
