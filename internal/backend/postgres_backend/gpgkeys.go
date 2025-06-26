@@ -2,7 +2,6 @@ package postgres_backend
 
 import (
 	"context"
-	"errors"
 	"go-terraform-registry/internal/api/models"
 	"go-terraform-registry/internal/backend"
 	"go-terraform-registry/internal/pgp"
@@ -11,7 +10,35 @@ import (
 var _ backend.GPGKeysBackend = &PostgresBackend{}
 
 func (p *PostgresBackend) GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*models.GPGKeysListResponse, error) {
-	return nil, errors.New("This endpoint is not implemented yet.")
+	keys, err := gpgList(ctx, p.db, namespaceFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.GPGKeysListResponse{
+		Meta: models.Meta{
+			Pagination: models.PaginationMeta{
+				PageSize:    1,
+				CurrentPage: 1,
+				TotalPages:  1,
+				TotalCount:  1,
+			},
+		},
+	}
+
+	for _, key := range *keys {
+		keyData := models.GPGKeysDataResponse{
+			ID: key.ID,
+			Attributes: models.GPGKeysAttributesResponse{
+				KeyID:      key.KeyID,
+				Namespace:  key.Namespace,
+				AsciiArmor: key.AsciiArmor,
+			},
+		}
+		resp.Data = append(resp.Data, keyData)
+	}
+
+	return resp, nil
 }
 
 func (p *PostgresBackend) GPGKeysAdd(ctx context.Context, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {

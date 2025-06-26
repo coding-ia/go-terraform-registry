@@ -71,6 +71,37 @@ func gpgSelect(ctx context.Context, db *pgxpool.Pool, keyID, namespace string) (
 	return &key, nil
 }
 
+func gpgList(ctx context.Context, db *pgxpool.Pool, namespace string) (*[]GPGKey, error) {
+	query := `
+		SELECT gpgkey_id, ascii_armor, key_id, namespace
+		FROM gpg_keys
+		WHERE namespace = $2;
+	`
+
+	rows, err := db.Query(ctx, query, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var keys []GPGKey
+	for rows.Next() {
+		var key GPGKey
+		err := rows.Scan(
+			&key.ID,
+			&key.AsciiArmor,
+			&key.KeyID,
+			&key.Namespace,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		keys = append(keys, key)
+	}
+
+	return &keys, nil
+}
+
 func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {
 	return WithTransaction(ctx, db, func(tx pgx.Tx) error {
 		query := `
