@@ -37,8 +37,8 @@ var gpgListCmd = &cobra.Command{
 func init() {
 	gpgCmd.AddCommand(gpgListCmd)
 
-	gpgListCmd.Flags().StringVar(&gpgOptions.Endpoint, "endpoint", "", "Repository endpoint")
-	gpgListCmd.Flags().StringVar(&gpgOptions.Namespace, "namespace", "", "Provider namespace")
+	gpgListCmd.Flags().StringVar(&gpgListOptions.Endpoint, "endpoint", "", "Repository endpoint")
+	gpgListCmd.Flags().StringVar(&gpgListOptions.Namespace, "namespace", "", "Provider namespace")
 	gpgListCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
 	_ = gpgListCmd.MarkFlagRequired("endpoint")
