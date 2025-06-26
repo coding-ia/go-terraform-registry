@@ -71,16 +71,28 @@ func gpgSelect(ctx context.Context, db *pgxpool.Pool, keyID, namespace string) (
 	return &key, nil
 }
 
-func gpgList(ctx context.Context, db *pgxpool.Pool, namespace string) (*[]GPGKey, error) {
+func gpgList(ctx context.Context, db *pgxpool.Pool, namespace string) (*[]GPGKey, *Pagination, error) {
+	queryCount := `
+		SELECT COUNT(*)
+		FROM gpg_keys
+		WHERE namespace = $1;
+	`
+
 	query := `
 		SELECT gpgkey_id, ascii_armor, key_id, namespace
 		FROM gpg_keys
 		WHERE namespace = $1;
 	`
 
+	var pagination Pagination
+	err := db.QueryRow(ctx, queryCount, namespace).Scan(&pagination.TotalCount)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	rows, err := db.Query(ctx, query, namespace)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var keys []GPGKey
@@ -93,13 +105,13 @@ func gpgList(ctx context.Context, db *pgxpool.Pool, namespace string) (*[]GPGKey
 			&key.Namespace,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		keys = append(keys, key)
 	}
 
-	return &keys, nil
+	return &keys, &pagination, nil
 }
 
 func modulesInsert(ctx context.Context, db *pgxpool.Pool, value *Module) error {

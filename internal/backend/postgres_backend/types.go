@@ -87,3 +87,7 @@ type ModuleReleaseVersionInfo struct {
 	Version      string `json:"version"`
 	CommitSHA    string `json:"commit_sha"`
 }
+
+type Pagination struct {
+	TotalCount int `json:"total-count"`
+}

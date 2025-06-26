@@ -10,7 +10,7 @@ import (
 var _ backend.GPGKeysBackend = &PostgresBackend{}
 
 func (p *PostgresBackend) GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*models.GPGKeysListResponse, error) {
-	keys, err := gpgList(ctx, p.db, namespaceFilter)
+	keys, pagination, err := gpgList(ctx, p.db, namespaceFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +21,7 @@ func (p *PostgresBackend) GPGKeysList(ctx context.Context, namespaceFilter strin
 				PageSize:    1,
 				CurrentPage: 1,
 				TotalPages:  1,
-				TotalCount:  1,
+				TotalCount:  pagination.TotalCount,
 			},
 		},
 	}

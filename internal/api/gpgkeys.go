@@ -33,7 +33,7 @@ func (a *GPGKeysAPI) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JsonResponse(w, http.StatusCreated, resp)
+	response.JsonResponse(w, http.StatusOK, resp)
 }
 
 func (a *GPGKeysAPI) Add(w http.ResponseWriter, r *http.Request) {
