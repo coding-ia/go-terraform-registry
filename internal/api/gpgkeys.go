@@ -12,10 +12,20 @@ type GPGKeysAPI api
 
 func (a *GPGKeysAPI) List(w http.ResponseWriter, r *http.Request) {
 	queryNamespace := r.URL.Query().Get("filter[namespace]")
-	pageNumber, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
 
-	resp, err := a.Backend.GPGKeysList(r.Context(), queryNamespace, &pageNumber, &pageSize)
+	var pageNumber *int
+	if r.URL.Query().Has("page[number]") {
+		val, _ := strconv.Atoi(r.URL.Query().Get("page[number]"))
+		pageNumber = &val
+	}
+
+	var pageSize *int
+	if r.URL.Query().Has("page[size]") {
+		val, _ := strconv.Atoi(r.URL.Query().Get("page[size]"))
+		pageSize = &val
+	}
+
+	resp, err := a.Backend.GPGKeysList(r.Context(), queryNamespace, pageNumber, pageSize)
 	if err != nil {
 		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
 			Error: err.Error(),
