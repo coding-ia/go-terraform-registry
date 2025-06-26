@@ -47,6 +47,7 @@ type ModuleVersionsBackend interface {
 }
 
 type GPGKeysBackend interface {
+	GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*apimodels.GPGKeysListResponse, error)
 	GPGKeysAdd(ctx context.Context, request apimodels.GPGKeysRequest) (*apimodels.GPGKeysResponse, error)
 }
 

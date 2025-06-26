@@ -12,6 +12,10 @@ import (
 
 var _ backend.GPGKeysBackend = &BadgerDBBackend{}
 
+func (b *BadgerDBBackend) GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*models.GPGKeysListResponse, error) {
+	return nil, nil
+}
+
 func (b *BadgerDBBackend) GPGKeysAdd(ctx context.Context, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
 	newUUID := uuid.New()
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)

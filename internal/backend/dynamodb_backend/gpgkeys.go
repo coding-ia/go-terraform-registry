@@ -10,6 +10,10 @@ import (
 
 var _ backend.GPGKeysBackend = &DynamoDBBackend{}
 
+func (d *DynamoDBBackend) GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*models.GPGKeysListResponse, error) {
+	return nil, nil
+}
+
 func (d *DynamoDBBackend) GPGKeysAdd(ctx context.Context, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
 	newUUID := uuid.New()
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)

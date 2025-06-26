@@ -9,6 +9,38 @@ import (
 
 var _ backend.GPGKeysBackend = &PostgresBackend{}
 
+func (p *PostgresBackend) GPGKeysList(ctx context.Context, namespaceFilter string, pageNumber *int, pageSize *int) (*models.GPGKeysListResponse, error) {
+	keys, pagination, err := gpgList(ctx, p.db, namespaceFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.GPGKeysListResponse{
+		Meta: models.Meta{
+			Pagination: models.PaginationMeta{
+				PageSize:    1,
+				CurrentPage: 1,
+				TotalPages:  1,
+				TotalCount:  pagination.TotalCount,
+			},
+		},
+	}
+
+	for _, key := range *keys {
+		keyData := models.GPGKeysDataResponse{
+			ID: key.ID,
+			Attributes: models.GPGKeysAttributesResponse{
+				KeyID:      key.KeyID,
+				Namespace:  key.Namespace,
+				AsciiArmor: key.AsciiArmor,
+			},
+		}
+		resp.Data = append(resp.Data, keyData)
+	}
+
+	return resp, nil
+}
+
 func (p *PostgresBackend) GPGKeysAdd(ctx context.Context, request models.GPGKeysRequest) (*models.GPGKeysResponse, error) {
 	keyId := pgp.GetKeyID(request.Data.Attributes.AsciiArmor)
 
