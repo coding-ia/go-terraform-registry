@@ -21,7 +21,7 @@ type ModuleVersionDeleteOptions struct {
 
 var moduleVersionDeleteOptions = &ModuleVersionDeleteOptions{}
 
-var publicModuleVersionDeleteCmd = &cobra.Command{
+var moduleVersionDeleteCmd = &cobra.Command{
 	Use:   "delete-module-version",
 	Short: "Delete module version from registry",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -39,23 +39,23 @@ var publicModuleVersionDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	moduleCmd.AddCommand(publicModuleVersionDeleteCmd)
+	moduleCmd.AddCommand(moduleVersionDeleteCmd)
 
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Endpoint, "endpoint", "", "Registry endpoint")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Organization, "organization", "", "Registry organization")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Registry, "registry", "private", "Registry name")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Namespace, "namespace", "", "Module namespace")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Name, "name", "", "Module namespace")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Provider, "provider", "", "Module provider")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Version, "version", "", "Module version")
-	publicModuleVersionDeleteCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Endpoint, "endpoint", "", "Registry endpoint")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Organization, "organization", "", "Registry organization")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Registry, "registry", "private", "Registry name")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Namespace, "namespace", "", "Module namespace")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Name, "name", "", "Module namespace")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Provider, "provider", "", "Module provider")
+	moduleVersionDeleteCmd.Flags().StringVar(&moduleVersionDeleteOptions.Version, "version", "", "Module version")
+	moduleVersionDeleteCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
-	_ = publicModuleVersionCmd.MarkFlagRequired("endpoint")
-	_ = publicModuleVersionCmd.MarkFlagRequired("organization")
-	_ = publicModuleVersionCmd.MarkFlagRequired("name")
-	_ = publicModuleVersionCmd.MarkFlagRequired("namespace")
-	_ = publicModuleVersionCmd.MarkFlagRequired("provider")
-	_ = publicModuleVersionCmd.MarkFlagRequired("version")
+	_ = publishModuleVersionCmd.MarkFlagRequired("endpoint")
+	_ = publishModuleVersionCmd.MarkFlagRequired("organization")
+	_ = publishModuleVersionCmd.MarkFlagRequired("name")
+	_ = publishModuleVersionCmd.MarkFlagRequired("namespace")
+	_ = publishModuleVersionCmd.MarkFlagRequired("provider")
+	_ = publishModuleVersionCmd.MarkFlagRequired("version")
 }
 
 func deleteModuleVersion(_ context.Context) {

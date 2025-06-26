@@ -25,7 +25,7 @@ type ModuleVersionPublishOptions struct {
 
 var moduleVersionPublishOptions = &ModuleVersionPublishOptions{}
 
-var publicModuleVersionCmd = &cobra.Command{
+var publishModuleVersionCmd = &cobra.Command{
 	Use:   "publish-module-version",
 	Short: "Publish module version to registry",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -43,27 +43,27 @@ var publicModuleVersionCmd = &cobra.Command{
 }
 
 func init() {
-	moduleCmd.AddCommand(publicModuleVersionCmd)
+	moduleCmd.AddCommand(publishModuleVersionCmd)
 
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Endpoint, "endpoint", "", "Registry endpoint")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Organization, "organization", "", "Registry organization")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Registry, "registry", "private", "Registry name")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Namespace, "namespace", "", "Module namespace")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Name, "name", "", "Module namespace")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Provider, "provider", "", "Module provider")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Version, "version", "", "Module version")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.CommitSHA, "commit-sha", "", "Module commit SHA")
-	publicModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.File, "archive-file", "", "Module archive file [tar.gz]")
-	publicModuleVersionCmd.Flags().BoolVar(&moduleVersionPublishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
-	publicModuleVersionCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Endpoint, "endpoint", "", "Registry endpoint")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Organization, "organization", "", "Registry organization")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Registry, "registry", "private", "Registry name")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Namespace, "namespace", "", "Module namespace")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Name, "name", "", "Module namespace")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Provider, "provider", "", "Module provider")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.Version, "version", "", "Module version")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.CommitSHA, "commit-sha", "", "Module commit SHA")
+	publishModuleVersionCmd.Flags().StringVar(&moduleVersionPublishOptions.File, "archive-file", "", "Module archive file [tar.gz]")
+	publishModuleVersionCmd.Flags().BoolVar(&moduleVersionPublishOptions.ChunkUpload, "chunk-upload", false, "Upload chunks")
+	publishModuleVersionCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
-	_ = publicModuleVersionCmd.MarkFlagRequired("endpoint")
-	_ = publicModuleVersionCmd.MarkFlagRequired("organization")
-	_ = publicModuleVersionCmd.MarkFlagRequired("name")
-	_ = publicModuleVersionCmd.MarkFlagRequired("namespace")
-	_ = publicModuleVersionCmd.MarkFlagRequired("provider")
-	_ = publicModuleVersionCmd.MarkFlagRequired("version")
-	_ = publicModuleVersionCmd.MarkFlagRequired("commit-sha")
+	_ = publishModuleVersionCmd.MarkFlagRequired("endpoint")
+	_ = publishModuleVersionCmd.MarkFlagRequired("organization")
+	_ = publishModuleVersionCmd.MarkFlagRequired("name")
+	_ = publishModuleVersionCmd.MarkFlagRequired("namespace")
+	_ = publishModuleVersionCmd.MarkFlagRequired("provider")
+	_ = publishModuleVersionCmd.MarkFlagRequired("version")
+	_ = publishModuleVersionCmd.MarkFlagRequired("commit-sha")
 }
 
 func publishModuleVersion(_ context.Context) {
