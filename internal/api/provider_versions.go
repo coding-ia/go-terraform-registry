@@ -75,10 +75,42 @@ func (a *ProviderVersionsAPI) CreateVersion(w http.ResponseWriter, r *http.Reque
 	response.JsonResponse(w, http.StatusCreated, resp)
 }
 
-func (a *ProviderVersionsAPI) ListVersions(w http.ResponseWriter, _ *http.Request) {
-	response.JsonResponse(w, http.StatusNotImplemented, response.ErrorResponse{
-		Error: "This endpoint is not implemented yet.",
-	})
+func (a *ProviderVersionsAPI) ListVersions(w http.ResponseWriter, r *http.Request) {
+	organization := chi.URLParam(r, "organization")
+	registry := chi.URLParam(r, "registry")
+	namespace := chi.URLParam(r, "namespace")
+	name := chi.URLParam(r, "name")
+
+	if registry != "private" {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "registry must be private",
+		})
+		return
+	}
+
+	if !strings.EqualFold(organization, namespace) {
+		response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+			Error: "namespace must match organization",
+		})
+		return
+	}
+
+	parameters := registrytypes.APIParameters{
+		Organization: organization,
+		Registry:     registry,
+		Namespace:    namespace,
+		Name:         name,
+	}
+
+	resp, err := a.Backend.ProviderVersionsList(r.Context(), parameters)
+	if err != nil {
+		response.JsonResponse(w, http.StatusNotFound, response.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	response.JsonResponse(w, http.StatusCreated, resp)
 }
 
 func (a *ProviderVersionsAPI) GetVersion(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +195,7 @@ func (a *ProviderVersionsAPI) DeleteVersion(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		log.Printf("Error removing directory: %s", err.Error())
 	}
-	
+
 	w.WriteHeader(statusCode)
 }
 

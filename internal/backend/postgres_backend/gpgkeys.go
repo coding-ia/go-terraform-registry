@@ -28,7 +28,8 @@ func (p *PostgresBackend) GPGKeysList(ctx context.Context, namespaceFilter strin
 
 	for _, key := range *keys {
 		keyData := models.GPGKeysDataResponse{
-			ID: key.ID,
+			ID:   key.ID,
+			Type: "gpg-keys",
 			Attributes: models.GPGKeysAttributesResponse{
 				KeyID:      key.KeyID,
 				Namespace:  key.Namespace,

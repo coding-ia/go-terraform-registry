@@ -12,6 +12,10 @@ import (
 
 var _ backend.ProviderVersionsBackend = &BadgerDBBackend{}
 
+func (b *BadgerDBBackend) ProviderVersionsList(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsListResponse, error) {
+	return nil, nil
+}
+
 func (b *BadgerDBBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionsRequest) (*models.ProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s:%s/%s", b.Tables.ProviderTableName, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 

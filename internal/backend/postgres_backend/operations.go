@@ -357,6 +357,56 @@ func providerVersionsInsert(ctx context.Context, db *pgxpool.Pool, value *Provid
 	})
 }
 
+func providerVersionsList(ctx context.Context, db *pgxpool.Pool, providerId string) (*[]ProviderVersion, *Pagination, error) {
+	queryCount := `
+		SELECT COUNT(*)
+		FROM provider_versions
+		WHERE provider_id = $1;
+	`
+
+	query := `
+		SELECT provider_version_id, provider_id, gpgkey_id, version, metadata
+		FROM provider_versions
+		WHERE provider_id = $1;
+	`
+
+	var pagination Pagination
+	err := db.QueryRow(ctx, queryCount, providerId).Scan(&pagination.TotalCount)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rows, err := db.Query(ctx, query, providerId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var versions []ProviderVersion
+	for rows.Next() {
+		var providerVersion ProviderVersion
+		var metaData string
+		err := rows.Scan(
+			&providerVersion.ID,
+			&providerVersion.ProviderID,
+			&providerVersion.GPGKeyID,
+			&providerVersion.Version,
+			&metaData,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		err = json.Unmarshal([]byte(metaData), &providerVersion.MetaData)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		versions = append(versions, providerVersion)
+	}
+
+	return &versions, &pagination, nil
+}
+
 func providerVersionSelect(ctx context.Context, db *pgxpool.Pool, providerId string, version string) (*ProviderVersion, error) {
 	query := `
 		SELECT provider_version_id, provider_id, gpgkey_id, version, metadata

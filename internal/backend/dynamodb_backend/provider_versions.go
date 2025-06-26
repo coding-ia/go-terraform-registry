@@ -11,6 +11,10 @@ import (
 
 var _ backend.ProviderVersionsBackend = &DynamoDBBackend{}
 
+func (d *DynamoDBBackend) ProviderVersionsList(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsListResponse, error) {
+	return nil, nil
+}
+
 func (d *DynamoDBBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionsRequest) (*models.ProviderVersionsResponse, error) {
 	key := fmt.Sprintf("%s:%s:%s/%s", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	provider, err := getProvider(ctx, d.client, d.Tables.ProviderTableName, key)
