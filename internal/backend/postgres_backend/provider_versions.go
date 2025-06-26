@@ -11,6 +11,47 @@ import (
 
 var _ backend.ProviderVersionsBackend = &PostgresBackend{}
 
+func (p *PostgresBackend) ProviderVersionsList(ctx context.Context, parameters registrytypes.APIParameters) (*models.ProviderVersionsListResponse, error) {
+	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, fmt.Errorf("provider not found")
+	}
+
+	versions, pagination, err := providerVersionsList(ctx, p.db, provider.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &models.ProviderVersionsListResponse{
+		Meta: models.Meta{
+			Pagination: models.PaginationMeta{
+				PageSize:    1,
+				CurrentPage: 1,
+				TotalPages:  1,
+				TotalCount:  pagination.TotalCount,
+			},
+		},
+	}
+
+	for _, version := range *versions {
+		versionData := models.ProviderVersionsDataResponse{
+			ID:   version.ID,
+			Type: "registry-provider-versions",
+			Attributes: models.ProviderVersionsAttributesResponse{
+				Version:   version.Version,
+				Protocols: version.MetaData.Protocols,
+				KeyID:     version.GPGKeyID,
+			},
+		}
+		resp.Data = append(resp.Data, versionData)
+	}
+
+	return resp, nil
+}
+
 func (p *PostgresBackend) ProviderVersionsCreate(ctx context.Context, parameters registrytypes.APIParameters, request models.ProviderVersionsRequest) (*models.ProviderVersionsResponse, error) {
 	provider, err := providersSelect(ctx, p.db, parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name)
 	if err != nil {

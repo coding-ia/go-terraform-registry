@@ -43,9 +43,9 @@ func init() {
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Endpoint, "endpoint", "", "Registry endpoint")
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Organization, "organization", "", "Registry organization")
 	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Registry, "registry", "private", "Registry name")
-	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Namespace, "namespace", "", "Module namespace")
-	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Name, "name", "", "Module namespace")
-	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Version, "version", "", "Module version")
+	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Namespace, "namespace", "", "Provider namespace")
+	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Name, "name", "", "Provider name")
+	providerVersionDeleteCmd.Flags().StringVar(&providerVersionDeleteOptions.Version, "version", "", "Provider version")
 	providerVersionDeleteCmd.Flags().StringVar(&authenticationOptions.Token, "auth-token", "", "Authorization token")
 
 	_ = providerVersionDeleteCmd.MarkFlagRequired("endpoint")
