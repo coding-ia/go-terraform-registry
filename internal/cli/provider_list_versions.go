@@ -55,7 +55,7 @@ func init() {
 func listProviderVersion(_ context.Context) {
 	client := api_client.NewAPIClient(authenticationOptions.Token)
 
-	providerVersionsListResponse, _, err := ListProviderVersionsRequest(client, gpgListOptions.Endpoint)
+	providerVersionsListResponse, _, err := ListProviderVersionsRequest(client, providerVersionListOptions.Endpoint)
 	if err != nil {
 		fmt.Println(err)
 		return
