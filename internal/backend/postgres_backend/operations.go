@@ -75,7 +75,7 @@ func gpgList(ctx context.Context, db *pgxpool.Pool, namespace string) (*[]GPGKey
 	query := `
 		SELECT gpgkey_id, ascii_armor, key_id, namespace
 		FROM gpg_keys
-		WHERE namespace = $2;
+		WHERE namespace = $1;
 	`
 
 	rows, err := db.Query(ctx, query, namespace)
