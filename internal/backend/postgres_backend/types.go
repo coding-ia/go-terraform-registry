@@ -38,6 +38,7 @@ type ProviderVersion struct {
 	GPGKeyID   string                  `json:"gpg_key_id"`
 	Version    string                  `json:"version"`
 	MetaData   ProviderVersionMetaData `json:"metadata"`
+	Platforms  []string                `json:"platforms"`
 }
 
 type ProviderVersionMetaData struct {

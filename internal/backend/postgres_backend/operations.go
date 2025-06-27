@@ -357,7 +357,7 @@ func providerVersionsInsert(ctx context.Context, db *pgxpool.Pool, value *Provid
 	})
 }
 
-func providerVersionsList(ctx context.Context, db *pgxpool.Pool, providerId string) (*[]ProviderVersion, *Pagination, error) {
+func providerVersionsList(ctx context.Context, db *pgxpool.Pool, providerId string) (*map[string]ProviderVersion, *Pagination, error) {
 	queryCount := `
 		SELECT COUNT(*)
 		FROM provider_versions
@@ -365,9 +365,23 @@ func providerVersionsList(ctx context.Context, db *pgxpool.Pool, providerId stri
 	`
 
 	query := `
-		SELECT provider_version_id, provider_id, gpgkey_id, version, metadata
-		FROM provider_versions
-		WHERE provider_id = $1;
+		WITH limited_versions AS (
+		  SELECT *
+		  FROM provider_versions
+		  WHERE provider_id = $1
+		  ORDER BY created_at DESC
+		)
+		SELECT
+		  pv.provider_version_id,
+		  pv.provider_id,
+		  pv.gpgkey_id,
+		  pv.version,
+          pv.metadata,
+          pvp.provider_version_platform_id
+		FROM limited_versions pv
+		LEFT JOIN provider_version_platforms pvp
+		  ON pv.provider_version_id = pvp.provider_version_id
+		ORDER BY pv.created_at DESC;
 	`
 
 	var pagination Pagination
@@ -381,27 +395,35 @@ func providerVersionsList(ctx context.Context, db *pgxpool.Pool, providerId stri
 		return nil, nil, err
 	}
 
-	var versions []ProviderVersion
+	versions := make(map[string]ProviderVersion)
 	for rows.Next() {
 		var providerVersion ProviderVersion
 		var metaData string
+		var platformID string
 		err := rows.Scan(
 			&providerVersion.ID,
 			&providerVersion.ProviderID,
 			&providerVersion.GPGKeyID,
 			&providerVersion.Version,
 			&metaData,
+			&platformID,
 		)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		err = json.Unmarshal([]byte(metaData), &providerVersion.MetaData)
-		if err != nil {
-			return nil, nil, err
+		if _, exists := versions[providerVersion.ID]; !exists {
+			err = json.Unmarshal([]byte(metaData), &providerVersion.MetaData)
+			if err != nil {
+				return nil, nil, err
+			}
+			providerVersion.Platforms = append(providerVersion.Platforms, platformID)
+			versions[providerVersion.ID] = providerVersion
+		} else {
+			tmpVer := versions[providerVersion.ID]
+			tmpVer.Platforms = append(tmpVer.Platforms, platformID)
+			versions[providerVersion.ID] = tmpVer
 		}
-
-		versions = append(versions, providerVersion)
 	}
 
 	return &versions, &pagination, nil
