@@ -45,7 +45,24 @@ func (p *PostgresBackend) ProviderVersionsList(ctx context.Context, parameters r
 				Protocols: version.MetaData.Protocols,
 				KeyID:     version.GPGKeyID,
 			},
+			Relationships: models.ProviderVersionsRelationshipsResponse{
+				RegistryProvider: models.ProviderVersionsRelationshipSingleResponse{
+					Data: models.ProviderVersionsRelationshipDataResponse{
+						ID:   version.ProviderID,
+						Type: "registry-providers",
+					},
+				},
+			},
 		}
+
+		for _, platform := range version.Platforms {
+			platformData := models.ProviderVersionsRelationshipDataResponse{
+				ID:   platform,
+				Type: "registry-provider-platforms",
+			}
+			versionData.Relationships.Platforms.Data = append(versionData.Relationships.Platforms.Data, platformData)
+		}
+
 		resp.Data = append(resp.Data, versionData)
 	}
 
