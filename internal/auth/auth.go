@@ -7,7 +7,7 @@ import (
 )
 
 type RegistryClaims struct {
-	Organization string `json:"organization"`
+	Organization []string `json:"organization"`
 	jwt.MapClaims
 }
 
@@ -28,7 +28,7 @@ func CreateJWTToken(username string, key []byte) (*string, error) {
 	return &signedToken, nil
 }
 
-func CreateJWTClaimsToken(username string, organization string, key []byte) (*string, error) {
+func CreateJWTClaimsToken(username string, organization []string, key []byte) (*string, error) {
 	claims := RegistryClaims{
 		Organization: organization,
 		MapClaims: jwt.MapClaims{

@@ -140,13 +140,24 @@ func ValidateOrganizationMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if !strings.EqualFold(orgVal.(string), organizationParam) {
-			response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
-				Error: "Invalid token for organization",
-			})
-			return
+		if orgSlice, ok := orgVal.([]string); ok {
+			if !containsIgnoreCase(orgSlice, organizationParam) {
+				response.JsonResponse(w, http.StatusUnprocessableEntity, response.ErrorResponse{
+					Error: "Invalid token for organization",
+				})
+				return
+			}
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func containsIgnoreCase(slice []string, val string) bool {
+	for _, s := range slice {
+		if strings.EqualFold(s, val) {
+			return true
+		}
+	}
+	return false
 }

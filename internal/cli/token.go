@@ -11,7 +11,7 @@ import (
 type TokenOptions struct {
 	Key          string
 	User         string
-	Organization string
+	Organization []string
 }
 
 var tokenOptions = &TokenOptions{}
@@ -36,7 +36,7 @@ func init() {
 	tokenKey := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	generateCmd.Flags().StringVar(&tokenOptions.Key, "key", tokenKey, "Token encryption key")
 	generateCmd.Flags().StringVar(&tokenOptions.User, "user", "", "User name")
-	generateCmd.Flags().StringVar(&tokenOptions.Organization, "organization", "", "Organization")
+	generateCmd.Flags().StringSliceVar(&tokenOptions.Organization, "organization", []string{""}, "Organization")
 
 	_ = generateCmd.MarkFlagRequired("user")
 	_ = generateCmd.MarkFlagRequired("organization")
