@@ -110,6 +110,32 @@ func (a *ProviderVersionsAPI) ListVersions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	for i, d := range resp.Data {
+		// Create related links
+		related := fmt.Sprintf("/api/v2/organizations/%s/registry-providers/%s/%s/%s/versions/%s/platforms", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, d.Attributes.Version)
+		resp.Data[i].Relationships.Platforms.Links.Related = related
+
+		// Mark permissions as true for now, in future create roles for permissions
+		resp.Data[i].Attributes.Permissions.CanDelete = true
+		resp.Data[i].Attributes.Permissions.CanUploadAsset = true
+
+		// Set the download URL's
+		shaSum := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS", parameters.Name, d.Attributes.Version)
+		shaSumSig := fmt.Sprintf("terraform-provider-%s_%s_SHA256SUMS.sig", parameters.Name, d.Attributes.Version)
+		key := fmt.Sprintf("%s/%s/%s/%s/%s/%s", "providers", parameters.Organization, parameters.Registry, parameters.Namespace, parameters.Name, d.Attributes.Version)
+
+		shaSumURL, err := a.Storage.GenerateDownloadURL(r.Context(), fmt.Sprintf("%s/%s", key, shaSum))
+		if err == nil {
+			resp.Data[i].Links.ShasumsDownload = &shaSumURL
+			resp.Data[i].Attributes.ShasumsUploaded = true
+		}
+		shaSumSigURL, _ := a.Storage.GenerateDownloadURL(r.Context(), fmt.Sprintf("%s/%s", key, shaSumSig))
+		if err == nil {
+			resp.Data[i].Links.ShasumsSigDownload = &shaSumSigURL
+			resp.Data[i].Attributes.ShasumsSigUploaded = true
+		}
+	}
+
 	response.JsonResponse(w, http.StatusCreated, resp)
 }
 
